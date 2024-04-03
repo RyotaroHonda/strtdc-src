@@ -11,6 +11,7 @@ package defStrLRTDC is
   constant kTdcMaskMainD          : LocalAddressType := x"010"; -- W/R, [31:0], tdc data mask
   constant kTdcMaskMznU           : LocalAddressType := x"020"; -- W/R, [31:0], tdc data mask
   constant kTdcMaskMznD           : LocalAddressType := x"030"; -- W/R, [31:0], tdc data mask
+  constant kTdcMaskEx             : LocalAddressType := x"0E0"; -- W/R, [31:0], tdc data mask
 
   constant kEnBypass              : LocalAddressType := x"040"; -- W/R, [1:0], Enable bypass route in ODPBlock
   constant kWidthBypass           : integer:= 8;

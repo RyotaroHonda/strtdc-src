@@ -8,9 +8,9 @@ use mylib.defDelimiter.all;
 package defTDC is
 
   -- TDC data structure --
-  constant kPosChannel  : std_logic_vector(kPosHbdDataType'low-1 downto kPosHbdDataType'low -7)  :=(others => '0');
-  constant kPosTot      : std_logic_vector(kPosHbdReserve1'low-1 downto kPosHbdReserve1'low -16) := (others => '0');
-  constant kPosTiming   : std_logic_vector(kPosHbdFlag'low-1     downto kPosHbdFlag'low     -19) := (others => '0');
+  constant kPosChannel  : std_logic_vector(kPosHbdDataType'low-1 downto kPosHbdDataType'low -8)  := (others => '0');
+  constant kPosTot      : std_logic_vector(kPosChannel'low-1     downto kPosChannel'low     -16) := (others => '0');
+  constant kPosTiming   : std_logic_vector(kPosTot'low-1         downto kPosTot'low         -19) := (others => '0');
 
   -- FirstFDCEs parameters -------------------------------------------------------------
   constant kNumTdcClock     : integer  := 4;
