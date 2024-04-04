@@ -459,6 +459,20 @@ begin
                   null;
               end case;
 
+            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMaskEx(kNonMultiByte'range)) then
+              case addrLocalBus(kMultiByte'range) is
+                when k1stByte =>
+                  reg_tdc_mask(135 downto 128)  <= dataLocalBusIn;
+                when k2ndByte =>
+                  reg_tdc_mask(143 downto 136)  <= dataLocalBusIn;
+                when k3rdByte =>
+                  reg_tdc_mask(151 downto 144)  <= dataLocalBusIn;
+                when k4thByte =>
+                  reg_tdc_mask(159 downto 152)  <= dataLocalBusIn;
+                when others =>
+                  null;
+              end case;
+
             elsif(addrLocalBus(kNonMultiByte'range) = kEnBypass(kNonMultiByte'range)) then
               reg_enbypass  <= dataLocalBusIn;
 
@@ -575,6 +589,20 @@ begin
                   dataLocalBusOut   <= reg_tdc_mask(119 downto 112);
                 when k4thByte =>
                   dataLocalBusOut   <= reg_tdc_mask(127 downto 120);
+                when others =>
+                  null;
+              end case;
+
+            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMaskEx(kNonMultiByte'range)) then
+              case addrLocalBus(kMultiByte'range) is
+                when k1stByte =>
+                  dataLocalBusOut   <= reg_tdc_mask(135 downto 128);
+                when k2ndByte =>
+                  dataLocalBusOut   <= reg_tdc_mask(143 downto 136);
+                when k3rdByte =>
+                  dataLocalBusOut   <= reg_tdc_mask(151 downto 144);
+                when k4thByte =>
+                  dataLocalBusOut   <= reg_tdc_mask(159 downto 152);
                 when others =>
                   null;
               end case;

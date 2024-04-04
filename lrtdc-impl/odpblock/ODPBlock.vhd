@@ -63,9 +63,6 @@ architecture RTL of ODPBlock is
   signal sig_in_n           : std_logic_vector(kNumInput-1 downto 0);
 
   -- delimiter delay --
-  signal valid_delimiter    : std_logic;
-  signal dout_delimiter     : std_logic_vector(kWidthData-1 downto 0);
-  signal is_working_out     : std_logic;
 
   -- TDC --
   signal valid_leading          : std_logic_vector(kNumInput -1 downto 0);
