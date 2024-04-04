@@ -239,7 +239,7 @@ begin
   delimiter_flags(kIndexLHbfNumMismatch)  <= '0';
 
   delimiter_flags(kIndexInThrottlingT2)   <= input_throttling_type2_on;
-  delimiter_flags(kIndexOutThrottling)    <= output_throttling_on;
+  delimiter_flags(kIndexOutThrottling)    <= '0';
   delimiter_flags(kIndexHbfThrottling)    <= hbf_throttling_on;
 
   u_DelimiterGen: entity mylib.DelimiterGenerator
@@ -361,7 +361,7 @@ begin
 
 
   -- bus process -------------------------------------------------------------
-  u_BusProcess : process(clk, sync_reset)
+  u_BusProcess : process(clk)
   begin
     if(clk'event and clk = '1') then
       if(sync_reset = '1') then
