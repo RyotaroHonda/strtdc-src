@@ -7,39 +7,34 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 library mylib;
-use mylib.defDCR.all;
 use mylib.defBCT.all;
 use mylib.defLaccp.all;
 use mylib.defHeartBeatUnit.all;
 use mylib.defDataBusAbst.all;
-use mylib.defDelimiter.all;
 use mylib.defTDC.all;
+use mylib.defDelimiter.all;
 use mylib.defGateGen.all;
 use mylib.defThrottling.all;
-use mylib.defStrLRTDC.all;
+use mylib.defStrHRTDC.all;
 
-entity StrLrTdc is
+entity StrHrTdc is
   generic(
-    kTdcType        : string:= "LRTDC";
     kNumInput       : integer:= 32;
-    kDivisionRatio  : integer:= 4;
     kNumScrThr      : integer:= 5;
     enDEBUG         : boolean:= false
-  );
+    );
   port(
     -- System ----------------------------------------------------
+    genChOffset       : in std_logic;
+
     rst               : in std_logic;
     clk               : in std_logic;
-    tdcClk            : in std_logic_vector(kNumTdcClock-1 downto 0);
+    tdcClk            : in std_logic;
 
-    radiationURE      : in std_logic;
-    daqOn             : out std_logic;
-    scrThrEn          : out std_logic_vector(kNumScrThr-1 downto 0);
-
-    -- Data Link --------------------------------------------------
+    -- Data Link -------------------------------------------------
     linkActive        : in std_logic;
 
-    -- LACCP ------------------------------------------------------
+    -- LACCP -----------------------------------------------------
     heartbeatIn       : in std_logic;
     hbCount           : in std_logic_vector(kWidthStrHbc-1 downto 0);
     hbfNumber         : in std_logic_vector(kWidthStrHbf-1 downto 0);
@@ -48,6 +43,8 @@ entity StrLrTdc is
 
     LaccpFineOffset   : in signed(kWidthLaccpFineOffset-1 downto 0);
 
+    lHbfNumMismatch   : in std_logic;
+
     -- Streaming TDC interface ------------------------------------
     sigIn             : in std_logic_vector(kNumInput-1 downto 0);
     triggerIn         : in std_logic;
@@ -55,11 +52,9 @@ entity StrLrTdc is
 
     dataRdEn          : in  std_logic;                                 --output fifo read enable
     dataOut           : out std_logic_vector(kWidthData-1 downto 0);   --output fifo data out
+    dataEmpty         : out std_logic;                                 --output fifo empty flag
+    dataAlmostEmpty   : out std_logic;                                 --output fifo almost empty flag
     dataRdValid       : out std_logic;                                 --output fifo valid flag
-
-    -- LinkBuffer interface ---------------------------------------
-    pfullLinkBufIn    : in std_logic;
-    emptyLinkInBufIn  : in std_logic;
 
     -- Local bus --
     addrLocalBus        : in LocalAddressType;
@@ -69,9 +64,9 @@ entity StrLrTdc is
     weLocalBus          : in std_logic;
     readyLocalBus       : out std_logic
   );
-end StrLrTdc;
+end StrHrTdc;
 
-architecture RTL of StrLrTdc is
+architecture RTL of StrHrTdc is
   attribute mark_debug      : boolean;
 
   -- System --
@@ -96,8 +91,8 @@ architecture RTL of StrLrTdc is
   signal reg_trigger_width      : std_logic_vector(kWidthTrgWidth-1 downto 0);
   signal trigger_gate           : std_logic;
 
-  signal incoming_buf_pfull     : std_logic;
-  signal local_hbf_num_mismatch : std_logic;
+  signal incoming_buf_pfull         : std_logic;
+  signal local_hbf_num_mismatch     : std_logic;
 
   attribute mark_debug of daq_is_running  : signal is enDEBUG;
   attribute mark_debug of trigger_gate    : signal is enDEBUG;
@@ -126,6 +121,13 @@ architecture RTL of StrLrTdc is
   signal reg_tot_filter_control : std_logic_vector(kWidthBypass-1 downto 0);
   signal reg_tot_minth, reg_tot_maxth : std_logic_vector(kWidthTOT-1 downto 0);
 
+  signal reg_through, reg_switch, reg_auto_sw  : std_logic;
+
+  signal reg_ready_lut, reg_ready_lut_leading, reg_ready_lut_trailing  : std_logic;
+  signal ready_lut_leading                : std_logic_vector(kNumInput-1 downto 0);
+  signal ready_lut_trailing               : std_logic_vector(kNumInput-1 downto 0);
+
+
   -- Vital --------------------------------------------------------
   signal vital_valid      : std_logic;
   signal vital_dout       : std_logic_vector(kWidthData-1 downto 0);
@@ -147,6 +149,8 @@ begin
   throttling_on(2)  <= input_throttling_type2_on;
   throttling_on(3)  <= output_throttling_on;
   throttling_on(4)  <= hbf_throttling_on;
+
+  local_hbf_num_mismatch  <= lhbfNumMismatch;
 
   u_throttling_time : process(clk)
   begin
@@ -170,7 +174,6 @@ begin
       end if;
     end if;
   end process;
-
 
   -- DAQ On/Off --
   u_daq_state : process(clk)
@@ -230,7 +233,6 @@ begin
       isWorking           => hbf_throttling_on
     );
 
-
   -- Delimiter generation --
   delimiter_flags(kIndexRadiationURE)     <= radiationURE;
 
@@ -239,15 +241,16 @@ begin
   delimiter_flags(kIndexLHbfNumMismatch)  <= '0';
 
   delimiter_flags(kIndexInThrottlingT2)   <= input_throttling_type2_on;
-  delimiter_flags(kIndexOutThrottling)    <= '0';
+  delimiter_flags(kIndexOutThrottling)    <= output_throttling_on;
   delimiter_flags(kIndexHbfThrottling)    <= hbf_throttling_on;
 
+  -- Delimiter generation --block --
   u_DelimiterGen: entity mylib.DelimiterGenerator
     generic map(
-      enDEBUG       => false
+      enDEBUG     => false
     )
     port map(
-      syncReset         => sync_reset,
+      rst               => sync_reset,
       clk               => clk,
 
       -- Status input ----------------------------------
@@ -271,13 +274,21 @@ begin
     )
     port map(
       -- System --
-      rst             => rst,
-      tdcClk          => tdcClk,
-      baseClk         => clk,
-      hitOut          => hitOut,
+      genChOffset   => genChOffset,
+      hitOut        => hitOut,
+
+      rst           => rst,
+      tdcClk        => tdcClk,
+      baseClk       => clk,
 
       -- Control registers --
-      tdcMask         => reg_tdc_mask(kNumInput-1 downto 0),
+      regThrough      => reg_through,
+      regAutoSW       => reg_auto_sw,
+      regSwitch       => reg_switch,
+      regReadyLut     => reg_ready_lut,
+
+      regTdcMask      => reg_tdc_mask,
+
       enBypassDelay   => reg_enbypass(kIndexDelay),
       enBypassParing  => reg_enbypass(kIndexParing),
 
@@ -292,7 +303,7 @@ begin
       triggerGate     => trigger_gate,
 
       -- Heartbeat counter for TDC --
-      hbCount         => hbCount,
+      hbCount         => heartbeat_count,
 
       -- Delimiter word I/F --
       validDelimiter  => delimiter_data_valid,
@@ -309,54 +320,38 @@ begin
   -- vital block --
   u_VitalBlock: entity mylib.VitalBlock
     generic map(
-      kTdcType        => kTdcType,
+      kTdcType        => "HRTDC",
       kNumInput       => kNumInput,
-      kDivisionRatio  => kDivisionRatio,
+      kDivisionRatio  => 1,
       enDEBUG         => false
     )
     port map(
       clk                 => clk,
       rst                 => rst,
-      lhbfNumMismatch     => local_hbf_num_mismatch,
+      lhbfNumMismatch     => open,
 
       -- ODPBlock input --
-      odpWrenIn           => odp_wren,
-      odpDataIn           => odp_dout,
-      hbCount             => hbCount,
+      ODPWriteEnableIn    => odp_wren,
+      ODPDinIn            => odp_dout,
+      hbCount             => heartbeat_count,
 
-      -- Status output --
+      -- Stcp flag --
       bufferProgFull      => incoming_buf_pfull,
 
       -- Throttling status --
-      outThrottlingOn     => output_throttling_on,
+      outThrottlingOn     => open,
       inThrottlingT2On    => input_throttling_type2_on,
 
       -- Link buf status --
-      pfullLinkBufIn      => pfullLinkBufIn,
-      emptyLinkInBufIn    => emptyLinkInBufIn,
+      pfullLinkBufIn      => '0',
+      emptyLinkInBufIn    => '1',
 
       -- Output --
-      rdenIn              => dataRdEn,
-      dataOut             => vital_dout,
-      emptyOut            => open,
-      almostEmptyOut      => open,
-      validOut            => vital_valid
-    );
-
-  -- Replace 2nd delimiter with new delimiter --
-  u_replacer : entity mylib.DelimiterReplacer
-    port map(
-      syncReset           => sync_reset,
-      clk                 => clk,
-      userReg             => reg_user_for_delimiter,
-
-      -- Data In --
-      validIn             => vital_valid,
-      dIn                 => vital_dout,
-
-      -- Data Out --
-      validOut            => dataRdValid,
-      dOut                => dataOut
+      outputReadEnableIn  => dataRdEn,
+      outputDoutOut       => dataOut,
+      outputEmptyOut      => dataEmpty,
+      outputAlmostEmptyOut=> dataAlmostEmpty,
+      outputValidOut      => dataRdValid
     );
 
 
@@ -365,6 +360,9 @@ begin
   begin
     if(clk'event and clk = '1') then
       if(sync_reset = '1') then
+        reg_through       <= '0';
+        reg_auto_sw       <= '0';
+        reg_switch        <= '0';
         reg_tdc_mask      <= (others => '0');
         reg_enbypass      <= (others => '0');
         reg_tot_filter_control  <= (others => '0');
@@ -403,7 +401,15 @@ begin
             end if;
 
           when Write =>
-            if(addrLocalBus(kNonMultiByte'range) = kTdcMaskMainU(kNonMultiByte'range)) then
+            if(addrLocalBus(kNonMultiByte'range) = kControll(kNonMultiByte'range)) then
+              reg_through     <= dataLocalBusIn(kIndexThrough);
+              reg_auto_sw     <= dataLocalBusIn(kIndexAutoSW);
+              state_lbus      <= Done;
+
+            elsif(addrLocalBus(kNonMultiByte'range) = kReqSwitch(kNonMultiByte'range)) then
+              state_lbus      <= Execute;
+
+            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMask(kNonMultiByte'range)) then
               case addrLocalBus(kMultiByte'range) is
                 when k1stByte =>
                   reg_tdc_mask(7 downto 0)  <= dataLocalBusIn;
@@ -416,94 +422,49 @@ begin
                 when others =>
                   null;
               end case;
-
-            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMaskMainD(kNonMultiByte'range)) then
-              case addrLocalBus(kMultiByte'range) is
-                when k1stByte =>
-                  reg_tdc_mask(39 downto 32)  <= dataLocalBusIn;
-                when k2ndByte =>
-                  reg_tdc_mask(47 downto 40)  <= dataLocalBusIn;
-                when k3rdByte =>
-                  reg_tdc_mask(55 downto 48)  <= dataLocalBusIn;
-                when k4thByte =>
-                  reg_tdc_mask(63 downto 56)  <= dataLocalBusIn;
-                when others =>
-                  null;
-              end case;
-
-            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMaskMznU(kNonMultiByte'range)) then
-              case addrLocalBus(kMultiByte'range) is
-                when k1stByte =>
-                  reg_tdc_mask(71 downto 64)  <= dataLocalBusIn;
-                when k2ndByte =>
-                  reg_tdc_mask(79 downto 72)  <= dataLocalBusIn;
-                when k3rdByte =>
-                  reg_tdc_mask(87 downto 80)  <= dataLocalBusIn;
-                when k4thByte =>
-                  reg_tdc_mask(95 downto 88)  <= dataLocalBusIn;
-                when others =>
-                  null;
-              end case;
-
-            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMaskMznD(kNonMultiByte'range)) then
-              case addrLocalBus(kMultiByte'range) is
-                when k1stByte =>
-                  reg_tdc_mask(103 downto 96)  <= dataLocalBusIn;
-                when k2ndByte =>
-                  reg_tdc_mask(111 downto 104)  <= dataLocalBusIn;
-                when k3rdByte =>
-                  reg_tdc_mask(119 downto 112)  <= dataLocalBusIn;
-                when k4thByte =>
-                  reg_tdc_mask(127 downto 120)  <= dataLocalBusIn;
-                when others =>
-                  null;
-              end case;
-
-            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMaskEx(kNonMultiByte'range)) then
-              case addrLocalBus(kMultiByte'range) is
-                when k1stByte =>
-                  reg_tdc_mask(135 downto 128)  <= dataLocalBusIn;
-                when k2ndByte =>
-                  reg_tdc_mask(143 downto 136)  <= dataLocalBusIn;
-                when k3rdByte =>
-                  reg_tdc_mask(151 downto 144)  <= dataLocalBusIn;
-                when k4thByte =>
-                  reg_tdc_mask(159 downto 152)  <= dataLocalBusIn;
-                when others =>
-                  null;
-              end case;
+              state_lbus      <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kEnBypass(kNonMultiByte'range)) then
-              reg_enbypass  <= dataLocalBusIn;
+              reg_enbypass    <= dataLocalBusIn;
+              state_lbus      <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kTotFilterControl(kNonMultiByte'range)) then
               reg_tot_filter_control  <= dataLocalBusIn;
+              state_lbus              <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kTotMinTh(kNonMultiByte'range)) then
               case addrLocalBus(kMultiByte'range) is
                 when k1stByte =>
                   reg_tot_minth(7 downto 0)   <= dataLocalBusIn;
                 when k2ndByte =>
-                  reg_tot_minth(kWidthTOT-1 downto 8)  <= dataLocalBusIn;
+                  reg_tot_minth(15 downto 8)  <= dataLocalBusIn;
+                when k3rdByte =>
+                  reg_tot_minth(kWidthTOT-1 downto 16) <= dataLocalBusIn(5 downto 0);
                 when others =>
                   null;
               end case;
+              state_lbus      <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kTotMaxTh(kNonMultiByte'range)) then
               case addrLocalBus(kMultiByte'range) is
                 when k1stByte =>
                   reg_tot_maxth(7 downto 0)   <= dataLocalBusIn;
                 when k2ndByte =>
-                  reg_tot_maxth(kWidthTOT-1 downto 8)  <= dataLocalBusIn;
+                  reg_tot_maxth(15 downto 8)  <= dataLocalBusIn;
+                when k3rdByte =>
+                  reg_tot_maxth(kWidthTOT-1 downto 16) <= dataLocalBusIn(5 downto 0);
                 when others =>
                   null;
               end case;
+              state_lbus      <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kTriggerEmuControl(kNonMultiByte'range)) then
               reg_emumode_on  <= dataLocalBusIn(kTriggerMode'range);
+              state_lbus      <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kTrgGateDelay(kNonMultiByte'range)) then
               reg_trigger_delay <= dataLocalBusIn;
+              state_lbus      <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kTrgGateWidth(kNonMultiByte'range)) then
               case addrLocalBus(kMultiByte'range) is
@@ -514,9 +475,11 @@ begin
                 when others =>
                   null;
               end case;
+              state_lbus      <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kHbfThrottControl(kNonMultiByte'range)) then
               reg_hbf_throttling_ratio <= dataLocalBusIn(kNumHbfMode-1 downto 0);
+              state_lbus      <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kHbdUserReg(kNonMultiByte'range)) then
               case addrLocalBus(kMultiByte'range) is
@@ -527,88 +490,39 @@ begin
                 when others =>
                   null;
               end case;
+              state_lbus      <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kSelfRecoveryMode(kNonMultiByte'range)) then
               reg_self_recovery_mode <= dataLocalBusIn(0);
+              state_lbus      <= Done;
 
             else
-              null;
+              state_lbus      <= Done;
             end if;
-            state_lbus      <= Done;
 
           when Read =>
-            if(addrLocalBus(kNonMultiByte'range) = kTdcMaskMainU(kNonMultiByte'range)) then
-              case addrLocalBus(kMultiByte'range) is
-                when k1stByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(7 downto 0);
-                when k2ndByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(15 downto 8);
-                when k3rdByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(23 downto 16);
-                when k4thByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(31 downto 24);
-                when others =>
-                  null;
-              end case;
+            if(addrLocalBus(kNonMultiByte'range) = kControll(kNonMultiByte'range)) then
+              dataLocalBusOut <= "000000" & reg_auto_sw & reg_through;
 
-            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMaskMainD(kNonMultiByte'range)) then
-              case addrLocalBus(kMultiByte'range) is
-                when k1stByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(39 downto 32);
-                when k2ndByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(47 downto 40);
-                when k3rdByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(55 downto 48);
-                when k4thByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(63 downto 56);
-                when others =>
-                  null;
-              end case;
+            elsif(addrLocalBus(kNonMultiByte'range) = kStatus(kNonMultiByte'range)) then
+              dataLocalBusOut <= "0000000" & reg_ready_lut;
 
-            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMaskMznU(kNonMultiByte'range)) then
+            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMask(kNonMultiByte'range)) then
               case addrLocalBus(kMultiByte'range) is
                 when k1stByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(71 downto 64);
+                  dataLocalBusOut <= reg_tdc_mask(7 downto 0);
                 when k2ndByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(79 downto 72);
+                  dataLocalBusOut <= reg_tdc_mask(15 downto 8);
                 when k3rdByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(87 downto 80);
+                  dataLocalBusOut <= reg_tdc_mask(23 downto 16);
                 when k4thByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(95 downto 88);
-                when others =>
-                  null;
-              end case;
-
-            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMaskMznU(kNonMultiByte'range)) then
-              case addrLocalBus(kMultiByte'range) is
-                when k1stByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(103 downto 96);
-                when k2ndByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(111 downto 104);
-                when k3rdByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(119 downto 112);
-                when k4thByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(127 downto 120);
-                when others =>
-                  null;
-              end case;
-
-            elsif(addrLocalBus(kNonMultiByte'range) = kTdcMaskEx(kNonMultiByte'range)) then
-              case addrLocalBus(kMultiByte'range) is
-                when k1stByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(135 downto 128);
-                when k2ndByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(143 downto 136);
-                when k3rdByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(151 downto 144);
-                when k4thByte =>
-                  dataLocalBusOut   <= reg_tdc_mask(159 downto 152);
+                  dataLocalBusOut <= reg_tdc_mask(31 downto 24);
                 when others =>
                   null;
               end case;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kEnBypass(kNonMultiByte'range)) then
-              dataLocalBusOut   <= reg_enbypass;
+              dataLocalBusOut <= reg_enbypass;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kTotFilterControl(kNonMultiByte'range)) then
               dataLocalBusOut   <= reg_tot_filter_control;
@@ -619,6 +533,8 @@ begin
                   dataLocalBusOut   <= reg_tot_minth(7 downto 0);
                 when k2ndByte =>
                   dataLocalBusOut   <= reg_tot_minth(15 downto 8);
+                when k3rdByte =>
+                  dataLocalBusOut   <= "00" & reg_tot_minth(kWidthTOT-1 downto 16);
                 when others =>
                   null;
               end case;
@@ -629,6 +545,8 @@ begin
                   dataLocalBusOut   <= reg_tot_maxth(7 downto 0);
                 when k2ndByte =>
                   dataLocalBusOut   <= reg_tot_maxth(15 downto 8);
+                when k3rdByte =>
+                  dataLocalBusOut   <= "00" & reg_tot_maxth(kWidthTOT-1 downto 16);
                 when others =>
                   null;
               end case;
@@ -656,8 +574,17 @@ begin
               dataLocalBusOut <= (0 => reg_self_recovery_mode, others => '0');
 
             else
-              null;
+              dataLocalBusOut <= X"ee";
             end if;
+
+            state_lbus    <= Done;
+
+          when Execute =>
+            reg_switch    <= '1';
+            state_lbus    <= Finalize;
+
+          when Finalize =>
+            reg_switch    <= '0';
             state_lbus    <= Done;
 
           when Done =>
