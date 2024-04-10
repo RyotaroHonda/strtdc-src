@@ -27,7 +27,7 @@ package defStrLRTDC is
 
   constant kTriggerEmuControl     : LocalAddressType := x"080"; -- W/R, [1:0], Trigger emulation mode
   constant kTrgGateDelay          : LocalAddressType := x"090"; -- W/R, [7:0], Trigger gate delay
-  constant kTrgGateWidth          : LocalAddressType := x"0A0"; -- W/R, [15:0], Trigger gate width
+  constant kTrgGateWidth          : LocalAddressType := x"0A0"; -- W/R, [31:0], Trigger gate width
 
   constant kHbfThrottControl      : LocalAddressType := x"0B0"; -- W/R, [3:0], Hbf throttling control
 
