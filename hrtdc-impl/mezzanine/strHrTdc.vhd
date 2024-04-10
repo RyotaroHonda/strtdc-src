@@ -31,8 +31,18 @@ entity StrHrTdc is
     clk               : in std_logic;
     tdcClk            : in std_logic;
 
+    radiationURE      : in std_logic;
+    daqOn             : out std_logic;
+    scrThrEn          : out std_logic_vector(kNumScrThr-1 downto 0);
+
     -- Data Link -------------------------------------------------
     linkActive        : in std_logic;
+
+    -- DAQ status ------------------------------------------------
+    lHbfNumMismatch   : in std_logic;
+    inThrottlingT2On  : out std_logic;
+    throttlingAllOn   : out std_logic;
+    emptyLinkInBufIn  : in std_logic;
 
     -- LACCP -----------------------------------------------------
     heartbeatIn       : in std_logic;
@@ -43,7 +53,7 @@ entity StrHrTdc is
 
     LaccpFineOffset   : in signed(kWidthLaccpFineOffset-1 downto 0);
 
-    lHbfNumMismatch   : in std_logic;
+
 
     -- Streaming TDC interface ------------------------------------
     sigIn             : in std_logic_vector(kNumInput-1 downto 0);
@@ -101,7 +111,6 @@ architecture RTL of StrHrTdc is
   signal hbf_throttling_on          : std_logic;
   signal reg_hbf_throttling_ratio   : std_logic_vector(kNumHbfMode-1 downto 0);
   signal input_throttling_type2_on  : std_logic;
-  signal output_throttling_on       : std_logic;
 
   -- Delimiter ----------------------------------------------------
   signal delimiter_flags        : std_logic_vector(kWidthDelimiterFlag-1 downto 0);
@@ -141,13 +150,14 @@ begin
   -- ======================================================================
   --                                 body
   -- ======================================================================
+  throttlingAllOn   <= throttling_on(0);
 
   daqOn <= daq_is_running;
   scrThrEn          <= scr_thr_on;
-  throttling_on(0)  <= input_throttling_type2_on or output_throttling_on or hbf_throttling_on;
+  throttling_on(0)  <= input_throttling_type2_on or hbf_throttling_on;
   throttling_on(1)  <= '0';
   throttling_on(2)  <= input_throttling_type2_on;
-  throttling_on(3)  <= output_throttling_on;
+  throttling_on(3)  <= '0';
   throttling_on(4)  <= hbf_throttling_on;
 
   local_hbf_num_mismatch  <= lhbfNumMismatch;
@@ -241,7 +251,7 @@ begin
   delimiter_flags(kIndexLHbfNumMismatch)  <= '0';
 
   delimiter_flags(kIndexInThrottlingT2)   <= input_throttling_type2_on;
-  delimiter_flags(kIndexOutThrottling)    <= output_throttling_on;
+  delimiter_flags(kIndexOutThrottling)    <= '0';
   delimiter_flags(kIndexHbfThrottling)    <= hbf_throttling_on;
 
   -- Delimiter generation --block --
@@ -250,7 +260,7 @@ begin
       enDEBUG     => false
     )
     port map(
-      rst               => sync_reset,
+      syncReset         => sync_reset,
       clk               => clk,
 
       -- Status input ----------------------------------
@@ -287,7 +297,7 @@ begin
       regSwitch       => reg_switch,
       regReadyLut     => reg_ready_lut,
 
-      regTdcMask      => reg_tdc_mask,
+      regTdcMask      => reg_tdc_mask(kNumInput-1 downto 0),
 
       enBypassDelay   => reg_enbypass(kIndexDelay),
       enBypassParing  => reg_enbypass(kIndexParing),
@@ -303,7 +313,7 @@ begin
       triggerGate     => trigger_gate,
 
       -- Heartbeat counter for TDC --
-      hbCount         => heartbeat_count,
+      hbCount         => hbCount,
 
       -- Delimiter word I/F --
       validDelimiter  => delimiter_data_valid,
@@ -331,9 +341,9 @@ begin
       lhbfNumMismatch     => open,
 
       -- ODPBlock input --
-      ODPWriteEnableIn    => odp_wren,
-      ODPDinIn            => odp_dout,
-      hbCount             => heartbeat_count,
+      odpWrenIn           => odp_wren,
+      odpDataIn           => odp_dout,
+      hbCount             => hbCount,
 
       -- Stcp flag --
       bufferProgFull      => incoming_buf_pfull,
@@ -347,11 +357,11 @@ begin
       emptyLinkInBufIn    => '1',
 
       -- Output --
-      outputReadEnableIn  => dataRdEn,
-      outputDoutOut       => dataOut,
-      outputEmptyOut      => dataEmpty,
-      outputAlmostEmptyOut=> dataAlmostEmpty,
-      outputValidOut      => dataRdValid
+      rdenIn              => dataRdEn,
+      dataOut             => dataOut,
+      emptyOut            => dataEmpty,
+      almostEmptyOut      => dataAlmostEmpty,
+      validOut            => dataRdValid
     );
 
 

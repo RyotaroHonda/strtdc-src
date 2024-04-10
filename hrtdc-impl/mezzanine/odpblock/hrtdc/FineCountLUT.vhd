@@ -128,7 +128,7 @@ begin
 --  reg_switch  <= regSwitch;
   reg_autosw  <= regAutoSW;
 
-  u_oneshot : entity mylib.EdgeDetector port map('0', CLK, regSwitch, reg_switch);
+  u_oneshot : entity mylib.EdgeDetector port map(CLK, regSwitch, reg_switch);
 
   -- line switch ---------------------------------------------------------
 --  req_switch  <= req_switch_auto when(reg_autosw = '1') else reg_switch;
