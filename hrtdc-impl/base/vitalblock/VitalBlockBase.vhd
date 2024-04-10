@@ -53,6 +53,10 @@ architecture Behavioral of VitalBlockBase is
   signal empty_mgr          : std_logic;
   signal dout_mgr           : std_logic_vector(kWidthData-1 downto 0);
 
+  -- Output throttling --
+  signal othrott_valid      : std_logic;
+  signal othrott_data       : std_logic_vector(kWidthData-1 downto 0);
+
   signal pfull_back_merger      : std_logic;
   signal local_hbf_num_mismatch : std_logic;
   signal output_throttling_on   : std_logic;
@@ -81,7 +85,7 @@ begin
     )
     port map(
       clk                 => clk,
-      rst                 => sync_reset,
+      syncReset           => sync_reset,
       progFullFifo        => pfull_back_merger,
       hbfNumMismatch      => local_hbf_num_mismatch,
 
@@ -95,7 +99,7 @@ begin
       dataOut             => dout_mgr,
       emptyOut            => emptyOut,
       almostEmptyOut      => almostEmptyOut,
-      validOutt           => valid_mgr
+      validOut            => valid_mgr
     );
 
 
@@ -104,8 +108,8 @@ begin
       enDEBUG => false
     )
     port map(
-      rst     => sync_reset,
-      clk     => clk,
+      syncReset     => sync_reset,
+      clk           => clk,
 
       -- status input --
       intputThrottlingOn  => intputThrottlingOn,
@@ -120,9 +124,25 @@ begin
       dIn                 => dout_mgr,
 
       -- Data Out --
-      validOut            => validOutt,
-      dOut                => dataOut
+      validOut            => othrott_valid,
+      dOut                => othrott_data
 
+    );
+
+  -- Replace 2nd delimiter with new delimiter --
+  u_replacer : entity mylib.DelimiterReplacer
+    port map(
+      syncReset           => sync_reset,
+      clk                 => clk,
+      userReg             => (others => '0'),
+
+      -- Data In --
+      validIn             => othrott_valid,
+      dIn                 => othrott_data,
+
+      -- Data Out --
+      validOut            => validOut,
+      dOut                => dataOut
     );
 
 

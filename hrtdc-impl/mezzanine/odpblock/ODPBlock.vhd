@@ -118,19 +118,19 @@ architecture RTL of ODPBlock is
 
   -- Generate FineCount /(Estimator+SemiFine) --
   constant fzero                : std_logic_vector(kWidthFineCount-1 downto 0):= (others => '0');
-  signal pos_fc_leading         : dFineCountType;
-  signal pos_fc_trailing        : dFineCountType;
+  signal pos_fc_leading         : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
+  signal pos_fc_trailing        : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
 
   signal valid_leading          : std_logic_vector(kNumInput -1 downto 0);
   signal valid_trailing         : std_logic_vector(kNumInput -1 downto 0);
-  signal finecount_leading      : dFineCountType;
-  signal finecount_trailing     : dFineCountType;
+  signal finecount_leading      : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
+  signal finecount_trailing     : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
 
   -- Data path merging --
   signal valid_data             : std_logic_vector(kNumInput -1 downto 0);
   signal valid_data_mask        : std_logic_vector(kNumInput -1 downto 0);
-  signal finecount_data         : dFineCountType;
-  signal finetot_data           : dFineCountType;
+  signal finecount_data         : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
+  signal finetot_data           : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
   signal is_leading             : std_logic_vector(kNumInput -1 downto 0);
   signal is_confilicted         : std_logic_vector(kNumInput -1 downto 0);
 
@@ -138,8 +138,8 @@ architecture RTL of ODPBlock is
   signal valid_data_delay       : std_logic_vector(kNumInput -1 downto 0);
   signal is_leading_delay       : std_logic_vector(kNumInput -1 downto 0);
   signal is_confilicted_delay   : std_logic_vector(kNumInput -1 downto 0);
-  signal finecount_data_delay   : dFineCountType;
-  signal finetot_data_delay     : dFineCountType;
+  signal finecount_data_delay   : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
+  signal finetot_data_delay     : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
 
   -- Trigger emulation --
   signal valid_data_trigger     : std_logic_vector(kNumInput -1 downto 0);
