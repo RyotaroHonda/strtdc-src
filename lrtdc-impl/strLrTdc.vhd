@@ -77,6 +77,11 @@ architecture RTL of StrLrTdc is
   -- System --
   signal sync_reset       : std_logic;
 
+  signal pre_vital_reset  : std_logic;
+  signal request_vital_reset  : std_logic;
+  constant kWidthVitalReset   : integer:= 8;
+  signal sr_vital_reset       : std_logic_vector(kWidthVitalReset-1 downto 0);
+
   -- Internal signal declaration ---------------------------------
   -- Scaler --
   type ThrCountType   is array(kNumScrThr-1 downto 0) of unsigned(kWidthHbCount-1 downto 0);
@@ -178,8 +183,9 @@ begin
   begin
     if(clk'event and clk = '1') then
       if(sync_reset = '1') then
-        daq_is_running  <= '0';
-        self_recovery   <= '0';
+        daq_is_running      <= '0';
+        self_recovery       <= '0';
+        request_vital_reset <= '0';
       else
         if(local_hbf_num_mismatch = '1' and reg_self_recovery_mode = '1') then
           wait_count    := kRecoveryWait;
@@ -198,7 +204,26 @@ begin
           if(self_recovery = '1' and wait_count /= 0) then
             wait_count  := wait_count -1;
           end if;
+
+          if(self_recovery = '1' and wait_count = 1) then
+            request_vital_reset   <= '1';
+          end if;
+
+        else
+          request_vital_reset   <= '0';
         end if;
+      end if;
+    end if;
+  end process;
+
+  pre_vital_reset <= sr_vital_reset(kWidthVitalReset-1);
+  u_vital_reset : process(clk)
+  begin
+    if(clk'event and clk = '1') then
+      if(request_vital_reset = '1') then
+        sr_vital_reset  <= (others => '1');
+      else
+        sr_vital_reset  <= sr_vital_reset(kWidthVitalReset-2 downto 0) & '0';
       end if;
     end if;
   end process;
@@ -316,7 +341,7 @@ begin
     )
     port map(
       clk                 => clk,
-      rst                 => rst,
+      rst                 => rst or pre_vital_reset,
       lhbfNumMismatch     => local_hbf_num_mismatch,
 
       -- ODPBlock input --
@@ -511,6 +536,10 @@ begin
                   reg_trigger_width(7 downto 0)   <= dataLocalBusIn;
                 when k2ndByte =>
                   reg_trigger_width(15 downto 8)   <= dataLocalBusIn;
+                when k3rdByte =>
+                  reg_trigger_width(23 downto 16)   <= dataLocalBusIn;
+                when k4thByte =>
+                  reg_trigger_width(31 downto 24)   <= dataLocalBusIn;
                 when others =>
                   null;
               end case;
