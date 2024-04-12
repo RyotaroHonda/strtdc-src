@@ -41,7 +41,7 @@ entity StrHrTdc is
     -- DAQ status ------------------------------------------------
     lHbfNumMismatch   : in std_logic;
     inThrottlingT2On  : out std_logic;
-    throttlingAllOn   : out std_logic;
+    outThrottlingOn   : in std_logic;
     emptyLinkInBufIn  : in std_logic;
 
     -- LACCP -----------------------------------------------------
@@ -81,6 +81,11 @@ architecture RTL of StrHrTdc is
 
   -- System --
   signal sync_reset       : std_logic;
+  signal sync_empty_in, sync_out_thrott_on, sync_link_active  : std_logic;
+
+  attribute mark_debug of sync_empty_in      : signal is enDebug;
+  attribute mark_debug of sync_out_thrott_on : signal is enDebug;
+  attribute mark_debug of sync_link_active   : signal is enDebug;
 
   -- Internal signal declaration ---------------------------------
   -- Scaler --
@@ -106,6 +111,7 @@ architecture RTL of StrHrTdc is
 
   attribute mark_debug of daq_is_running  : signal is enDEBUG;
   attribute mark_debug of trigger_gate    : signal is enDEBUG;
+  attribute mark_debug of local_hbf_num_mismatch    : signal is enDEBUG;
 
   -- Throttling ---------------------------------------------------
   signal hbf_throttling_on          : std_logic;
@@ -150,14 +156,18 @@ begin
   -- ======================================================================
   --                                 body
   -- ======================================================================
-  throttlingAllOn   <= throttling_on(0);
+
+  u_sync_empty   : entity mylib.synchronizer port map(clk, emptyLinkInBufIn, sync_empty_in);
+  u_sync_outthr  : entity mylib.synchronizer port map(clk, outThrottlingOn,  sync_out_thrott_on);
+  u_sync_tcpon   : entity mylib.synchronizer port map(clk, linkActive,       sync_link_active);
+
 
   daqOn <= daq_is_running;
   scrThrEn          <= scr_thr_on;
   throttling_on(0)  <= input_throttling_type2_on or hbf_throttling_on;
   throttling_on(1)  <= '0';
   throttling_on(2)  <= input_throttling_type2_on;
-  throttling_on(3)  <= '0';
+  throttling_on(3)  <= sync_out_thrott_on;
   throttling_on(4)  <= hbf_throttling_on;
 
   local_hbf_num_mismatch  <= lhbfNumMismatch;
@@ -197,12 +207,12 @@ begin
         if(local_hbf_num_mismatch = '1' and reg_self_recovery_mode = '1') then
           wait_count    := kRecoveryWait;
           self_recovery <= '1';
-        elsif(emptyLinkInBufIn = '1' and wait_count = 0) then
+        elsif(sync_empty_in = '1' and wait_count = 0) then
           self_recovery <= '0';
         end if;
 
         if(heartbeatIn = '1') then
-          if(self_recovery = '0' and hbfState = kActiveFrame and linkActive = '1') then
+          if(self_recovery = '0' and hbfState = kActiveFrame and sync_link_active = '1') then
             daq_is_running  <= '1';
           else
             daq_is_running  <= '0';

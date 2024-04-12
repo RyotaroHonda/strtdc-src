@@ -117,7 +117,7 @@ begin
   start_ddrrx_init <= initStartIn;
 
   -- ISerDes implementation ---------------------------------------------------------
-  u_rx_iserdes : entity mylib.Cdcm8RxImpl
+  u_rx_iserdes : entity mylib.Cdcm8RxImplHrTdc
     generic map
     (
       kSysW         => kWidthSys,

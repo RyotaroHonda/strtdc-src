@@ -31,6 +31,7 @@ entity DDRReceiverV2 is
       rst       : in  std_logic;
       clk       : in  std_logic;
       clkIdelayRef  : in std_logic;
+      idCtrlReady   : in std_logic;
 
       regDctIn  : in  RegDct2RcvType;
       regDctOut : out RegRcv2DctType;
@@ -126,6 +127,11 @@ begin
       );
   end generate;
 
+  ungen_idelayctrl : if genIDELAYCTRL = false generate
+  begin
+    idelayctrl_ready  <= idCtrlReady;
+  end generate;
+
   -- connection ---------------------------------------------------------
   rvDdrRx     <= rv_ddr_buf;
   doutDdrRx   <= din_ddr_data;
@@ -175,7 +181,7 @@ begin
 
   -- DDR clock to Clock buffer --------------------------------------------
   u_CLKDDR_Inst : IBUFDS
-    generic map ( DIFF_TERM => TRUE, IBUF_LOW_PWR => TRUE, IOSTANDARD => "LVDS")
+    generic map ( DIFF_TERM => TRUE, IBUF_LOW_PWR => FALSE, IOSTANDARD => "LVDS")
     port map ( O => clk_ddr, I => clkDDRp, IB => clkDDRn );
 
   u_BUFIO_Inst : BUFIO
@@ -190,7 +196,7 @@ begin
   re_ddr_buffer         <= and_reduce(re_fifo);
 
   gen_iserdes : for i in 0 to kNumDDR-1 generate
-    u_ddrrx : entity mylib.DdrRxV2
+    u_ddrrx : entity mylib.DdrRx
       generic map
       (
         kDiffTerm          => kDiffTerm,
