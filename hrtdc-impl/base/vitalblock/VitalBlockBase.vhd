@@ -61,10 +61,12 @@ architecture Behavioral of VitalBlockBase is
   signal local_hbf_num_mismatch : std_logic;
   signal output_throttling_on   : std_logic;
   signal read_enable_to_merger  : std_logic;
+  signal sync_in_throttl_on     : std_logic;
 
   attribute mark_debug of valid_mgr   : signal is enDEBUG;
   attribute mark_debug of empty_mgr   : signal is enDEBUG;
   attribute mark_debug of dout_mgr    : signal is enDEBUG;
+  attribute mark_debug of sync_in_throttl_on    : signal is enDEBUG;
 
   -- Output throttling --
 
@@ -75,6 +77,8 @@ begin
   outThrottlingOn <= output_throttling_on;
 
   read_enable_to_merger   <= '1' when(output_throttling_on = '1') else rdEnIn;
+
+  u_sync_inthrott : entity mylib.synchronizer port map(clk, intputThrottlingOn, sync_in_throttl_on);
 
   -- Back Merger --
   u_BMGR : entity mylib.MergerUnit
@@ -105,14 +109,14 @@ begin
 
   u_OutThrottle: entity mylib.OutputThrottling
     generic map(
-      enDEBUG => false
+      enDEBUG => true
     )
     port map(
       syncReset     => sync_reset,
       clk           => clk,
 
       -- status input --
-      intputThrottlingOn  => intputThrottlingOn,
+      intputThrottlingOn  => sync_in_throttl_on,
       pfullLinkIn         => pfullLinkIn,
       emptyLinkIn         => emptyLinkIn,
 
