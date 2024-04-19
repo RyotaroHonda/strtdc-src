@@ -84,7 +84,7 @@ architecture RTL of ODPBlock is
 
   -- TDC --
   -- Delay taps -------------------------------------------------------------
-  type TapArray   is array (integer range kNumInput-1 downto 0) of std_logic_vector(kNumRTaps downto 0);
+  type TapArray   is array (integer range kNumInput-1 downto 0) of std_logic_vector(kNumTaps-1 downto 0);
 
   signal tap_out        : tapArray;
   signal leading_taps   : tapArray;

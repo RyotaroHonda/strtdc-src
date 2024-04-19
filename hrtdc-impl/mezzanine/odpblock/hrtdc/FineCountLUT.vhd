@@ -178,7 +178,7 @@ begin
         regReady    <= reg_ready;
 
         if(reg_through = '1') then
-          dOut    <= "00000" & fc_buf;
+          dOut    <= "000" & fc_buf;
         else
           dOut    <= dout_read_buf;
         end if;

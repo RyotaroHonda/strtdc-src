@@ -10,7 +10,7 @@ entity HRTimingDecoder is
     sysClk      : in std_logic;
 
     -- input --
-    TapIn       : in std_logic_vector(kNumRTaps downto 0);
+    TapIn       : in std_logic_vector(kNumTaps-1 downto 0);
 
     -- output --
     hdOut       : out std_logic;
@@ -23,7 +23,7 @@ architecture RTL of HRTimingDecoder is
   -- signal decralation ----------------------------------------------------
 
   -- Lead finder --
-  signal lead_position_out    : std_logic_vector(kNumRTaps-1 downto 0);
+  signal lead_position_out    : std_logic_vector(kNumTaps-1 downto 0);
 
   -- Binary encoder --
   signal hit_detect_fast  : std_logic;
