@@ -1,7 +1,6 @@
 library ieee;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_arith.all;
-use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
 
 library mylib;
 use mylib.defHrTimingUnit.all;
@@ -11,8 +10,8 @@ package defFineCountLUT is
   constant kNumLut            : positive:= 2;
 
   constant kWidthLutIn        : positive:= 19;
-  constant kWidthLutAddr      : positive:= 6;
-  constant kMaxPtr            : std_logic_vector:= conv_std_logic_vector(kNumRTaps-1, kWidthLutAddr);
+  constant kWidthLutAddr      : positive:= 8;
+  constant kMaxPtr            : std_logic_vector(kWidthLutAddr-1 downto 0):= (others => '1');
   -- LutAddr: Bin number of reduced-tap --
 
   constant kLengthDiscard     : positive:= 8;

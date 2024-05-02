@@ -1,7 +1,8 @@
 library ieee, mylib;
 use ieee.std_logic_1164.all;
-use ieee.std_logic_arith.all;
-use ieee.std_logic_unsigned.all;
+use ieee.std_logic_misc.all;
+use ieee.numeric_std.all;
+
 use mylib.defHrTimingUnit.all;
 use mylib.defFineCountLUT.all;
 
@@ -18,7 +19,7 @@ entity FineCountLUT is
 
     -- module input --
     hdIn        : in std_logic;
-    dIn         : in std_logic_vector(kWidthFine-1 downto 0);
+    dIn         : in std_logic_vector(kWidthSemi+kWidthFine-1 downto 0);
 
     -- module output --
     hdOut       : out std_logic;
@@ -31,7 +32,7 @@ architecture RTL of FineCountLUT is
 
   -- internal signals ------------------------------------------------------
   signal reg_hdin     : std_logic;
-  signal reg_din      : std_logic_vector(kWidthFine-1 downto 0);
+  signal reg_din      : std_logic_vector(dIn'range);
 
   signal reg_through, reg_switch, reg_autosw, reg_ready  : std_logic;
 
@@ -43,15 +44,16 @@ architecture RTL of FineCountLUT is
 
   -- read process --
   signal hd_buf           : std_logic;
-  signal fc_buf           : std_logic_vector(kWidthFine-1 downto 0);
+  signal fc_buf           : std_logic_vector(dIn'range);
   signal dout_read_buf    : std_logic_vector(kWidthLutOut-1 downto 0);
 
   -- write process --
   constant kAllOne         : std_logic_vector(kWidthLutIn-1 downto 0):=(others => '1');
 
   signal state_write  : WriteProcessType;
-  signal count0           : std_logic_vector(kWidthLutIn-1 downto 0);
-  signal index            : std_logic_vector(kWidthFine-1 downto 0);
+  type CountArrayType is array(kNumClkDiv-1 downto 0) of std_logic_vector(kWidthLutIn-1 downto 0);
+  signal count0           : CountArrayType;
+  signal index            : std_logic_vector(dIn'range);
 
   signal we               : std_logic;
   signal din_write        : std_logic_vector(kWidthLutIn-1 downto 0);
@@ -178,7 +180,7 @@ begin
         regReady    <= reg_ready;
 
         if(reg_through = '1') then
-          dOut    <= "00000" & fc_buf;
+          dOut    <= "00000" & fc_buf(kWidthFine-1 downto 0);
         else
           dOut    <= dout_read_buf;
         end if;
@@ -196,6 +198,8 @@ begin
   dout_write_buf  <= dout_lut(1) when(line_select = '0') else dout_lut(0);
 
   u_write_process : process(CLK)
+    variable sf_index   : integer range 0 to kNumClkDiv:= 0;
+    variable flag_ready : std_logic:= '1';
   begin
     if(CLK'event AND CLK = '1') then
       if(RST = '1') then
@@ -204,7 +208,10 @@ begin
         reg_ready       <= '0';
         dsum0           <= (others => '0');
         dsum1           <= (others => '0');
-        count0          <= (others => '0');
+        count0          <= (others => (others => '0'));
+
+        sf_index        := 0;
+        flag_ready      := '1';
 
         state_write <= Init;
       else
@@ -215,7 +222,9 @@ begin
             reg_ready       <= '0';
             dsum0           <= (others => '0');
             dsum1           <= (others => '0');
-            count0          <= (others => '0');
+            count0          <= (others => (others => '0'));
+            sf_index        := 0;
+            flag_ready      := '1';
             state_write <= InitReset;
 
           -- Reset sequence ------------------------------------------
@@ -234,7 +243,7 @@ begin
 
           when FinalizeReset =>
             we        <= '0';
-            index     <= index +1;
+            index     <= std_logic_vector(unsigned(index) +1);
             if(index = kMaxPtr) then
               state_write <= SetAddr0;
             else
@@ -243,7 +252,8 @@ begin
 
           -- Accumulate hits -----------------------------------------
           when SetAddr0 =>
-            if(reg_hdin = '1') then
+            sf_index := to_integer(unsigned(reg_din(kWidthSemi+kWidthFine-1 downto kWidthFine)));
+            if(reg_hdin = '1' and count0(sf_index) /= kAllOne) then
               write_ptr   <= reg_din;
               state_write <= Read0;
             end if;
@@ -256,18 +266,23 @@ begin
             state_write <= Sum0;
 
           when Sum0 =>
-            dsum0       <= d0 + 1;
+            dsum0       <= std_logic_vector(unsigned(d0) + 1);
             state_write <= Write0;
 
           when Write0 =>
-            din_write   <= dsum0;
-            we          <= '1';
-            count0      <= count0 +1;
+            din_write         <= dsum0;
+            we                <= '1';
+            count0(sf_index)  <= std_logic_vector(unsigned(count0(sf_index)) +1);
+            flag_ready        := '1';
             state_write <= Finalize0;
 
           when Finalize0 =>
             we   <= '0';
-            if(count0 = kAllOne) then
+            --for i in 0 to kNumClkDiv-1 loop
+--              flag_ready  := flag_ready and and_reduce(count0(sf_index));
+            --end loop;
+
+            if(count0(0) = kAllOne and count0(1) = kAllOne and count0(2) = kAllOne and count0(3) = kAllOne) then
               state_write <= InitInteg;
             else
               state_write <= SetAddr0;
@@ -291,8 +306,8 @@ begin
             state_write <= Sum1;
 
           when Sum1 =>
-            din_write   <= ('0' & d1(kWidthLutIn-1 downto 1)) + dsum1;
-            dsum1       <= d1 + dsum1;
+            din_write   <= std_logic_vector(unsigned(('0' & d1(kWidthLutIn-1 downto 1))) + unsigned(dsum1));
+            dsum1       <= std_logic_vector(unsigned(d1) + unsigned(dsum1));
             state_write <= Write1;
 
           when Write1 =>
@@ -304,10 +319,13 @@ begin
             state_write <= Finalize1;
 
           when Finalize1 =>
-            index   <= index +1;
+            index   <= std_logic_vector(unsigned(index) +1);
             if(index = kMaxPtr) then
               state_write <= DoSwitch;
             else
+              if(index(kWidthFine-1 downto 0) = "111111") then
+                dsum1       <= (others => '0');
+              end if;
               state_write <= SetAddr1;
             end if;
 
@@ -321,7 +339,7 @@ begin
           when Done =>
             reg_ready       <= '0';
             req_switch_auto <= '0';
-            count0          <= (others => '0');
+            count0          <= (others => (others => '0'));
             state_write     <= InitReset;
 
           when others =>

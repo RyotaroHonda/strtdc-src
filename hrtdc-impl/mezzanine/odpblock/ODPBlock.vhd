@@ -265,7 +265,7 @@ begin
 
         -- module input --
         hdIn        => valid_raw_leading(i),
-        dIn         => raw_fc_leading(i)(kWidthFine-1 downto 0),
+        dIn         => raw_fc_leading(i),
 
         -- module output --
         hdOut       => hdout_fcl_leading(i),
@@ -313,7 +313,7 @@ begin
 
         -- module input --
         hdIn        => valid_raw_trailing(i),
-        dIn         => raw_fc_trailing(i)(kWidthFine-1 downto 0),
+        dIn         => raw_fc_trailing(i),
 
         -- module output --
         hdOut       => hdout_fcl_trailing(i),
@@ -323,11 +323,11 @@ begin
     u_semi_buf : process(baseClk)
     begin
       if(baseClk'event and baseClk = '1') then
-        semi_count_leading_1(i)  <= raw_fc_leading(i)(7 downto 6);
+        semi_count_leading_1(i)  <= raw_fc_leading(i)(kWidthFine+1 downto kWidthFine);
         semi_count_leading_2(i)  <= semi_count_leading_1(i);
         semi_count_leading_3(i)  <= semi_count_leading_2(i);
 
-        semi_count_trailing_1(i) <= raw_fc_trailing(i)(7 downto 6);
+        semi_count_trailing_1(i) <= raw_fc_trailing(i)(kWidthFine+1 downto kWidthFine);
         semi_count_trailing_2(i) <= semi_count_trailing_1(i);
         semi_count_trailing_3(i) <= semi_count_trailing_2(i);
       end if;
