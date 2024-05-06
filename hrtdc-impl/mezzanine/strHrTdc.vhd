@@ -36,6 +36,8 @@ entity StrHrTdc is
     daqOn             : out std_logic;
     scrThrEn          : out std_logic_vector(kNumScrThr-1 downto 0);
 
+    testModeIn        : in std_logic;
+
     -- Data Link -------------------------------------------------
     linkActive        : in std_logic;
 
@@ -58,6 +60,7 @@ entity StrHrTdc is
 
     -- Streaming TDC interface ------------------------------------
     sigIn             : in std_logic_vector(kNumInput-1 downto 0);
+    calibIn           : in std_logic;
     triggerIn         : in std_logic;
     hitOut            : out std_logic_vector(kNumInput-1 downto 0);
 
@@ -343,6 +346,8 @@ begin
       totMinTh        => reg_tot_minth,
       totMaxTh        => reg_tot_maxth,
 
+      testModeIn      => testModeIn,
+
       -- Data flow control --
       daqOn           => daq_is_running,
       hbfThrottlingOn => hbf_throttling_on,
@@ -357,6 +362,7 @@ begin
 
       -- Signal input --
       sigIn           => sigIn,
+      calibIn         => calibIn,
 
       -- DAQ data output --
       validOut        => odp_wren,

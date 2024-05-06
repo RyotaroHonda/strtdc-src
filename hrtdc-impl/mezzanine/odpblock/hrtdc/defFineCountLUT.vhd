@@ -9,7 +9,7 @@ package defFineCountLUT is
   -- LUT --
   constant kNumLut            : positive:= 2;
 
-  constant kWidthLutIn        : positive:= 19;
+  constant kWidthLutIn        : positive:= 21;
   constant kWidthLutAddr      : positive:= 8;
   constant kMaxPtr            : std_logic_vector(kWidthLutAddr-1 downto 0):= (others => '1');
   -- LutAddr: Bin number of reduced-tap --
