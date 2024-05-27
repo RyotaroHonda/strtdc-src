@@ -18,6 +18,9 @@ package defTDC is
   -- FineCounterDecoder parameters -----------------------------------------------------
   constant kWidthFineCount  : integer  := 3;
 
+  -- Channel ---------------------------------------------------------------------------
+  constant kWidthChannel    : integer  := kPosChannel'length;
+
   -- TdcUnit ---------------------------------------------------------------------------
   constant kWidthTiming     : integer  := kPosTiming'length;
 

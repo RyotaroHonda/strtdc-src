@@ -10,9 +10,10 @@ use mylib.defDelimiter.all;
 
 entity MergerUnit is
   generic (
-    kType     : string:= "Front"; -- "Front" or "Back"
-    kNumInput : integer:= 32;
-    enDEBUG   : boolean:= false
+    kType           : string:= "Front"; -- "Front" or "Back"
+    kNumInput       : integer:= 32;
+    kOffsetBitShift : integer:= 0;      -- if kNumInput=2, kOffsetBitShift=1 (divided by 2^kOffsetBitShift) for HR-TDC base merger
+    enDEBUG         : boolean:= false
   );
   port (
     -- System --
@@ -53,7 +54,12 @@ architecture Behavioral of MergerUnit is
   signal flag_wait2nddelimiter  : std_logic_vector(kNumInput-1 downto 0);
 
   -- Flag in delimiter words --
-  signal delimiter1st_flagbits      : std_logic_vector(kWidthDelimiterFlag-1 downto 0);
+  -- 1st
+  signal delimiter_flag         : std_logic_vector(kPosHbdFlag'length-1 downto 0);
+  signal delimiter_offset       : unsigned(kPosHbdOffset'length-1 downto 0);
+  -- 2st
+  signal delimiter_userreg      : std_logic_vector(kPosHbdUserReg'length-1 downto 0);
+  signal delimiter_gensize      : unsigned(kPosHbdGenSize'length-1 downto 0);
 
   -- Hb frame check --
   signal reg_hbfnum             : std_logic_vector(kPosHbdHBFrame'length-1 downto 0);
@@ -157,6 +163,21 @@ architecture Behavioral of MergerUnit is
     end if;
     return result;
   end check_hbfnum_mismatch;
+
+  -- avg_delimiter_offset --
+  function cal_delimiter_offset(  input_offset        : unsigned(kPosHbdOffset'length-1 downto 0);
+                                  accumulation_offset : unsigned(kPosHbdOffset'length-1 downto 0)
+                                  ) return unsigned is
+    variable output_offsset : unsigned(kPosHbdOffset'length-1 downto 0);
+  begin
+    output_offsset  := (others=>'0');
+    if(kOffsetBitShift=0)then
+      return input_offset;
+    else
+      output_offsset(kPosHbdOffset'length-1-kOffsetBitShift downto 0) := input_offset(kPosHbdOffset'length-1 downto kOffsetBitShift);
+      return output_offsset+accumulation_offset;
+    end if;
+  end cal_delimiter_offset;
 
   -- debug --
   signal  debug_valid     : std_logic_vector(kNumInput-1 downto 0);
@@ -293,52 +314,69 @@ begin
     if(clk'event and clk = '1')then
       if(syncReset = '1') then
         wren_outputfifo       <= '0';
-        din_outputfifo        <= (others=>'Z');
-        delimiter1st_flagbits <= (others=>'0');
+        delimiter_flag        <= (others=>'0');
+        delimiter_offset      <= (others=>'0');
+        delimiter_userreg     <= (others=>'0');
+        delimiter_gensize     <= (others=>'0');
 
         hbfnum_is_registered  <= '0';
         hbfnum_mismatch       <= '0';
       else
-        if(checkDelimiter(din_merger(kPosHbdDataType'range)))then -- delimiter
-
-          if((not (is_read_inputfifo or mask_delimiter)) = kZero or flag_last1stdelimiter)then --- last delimiter
+        -- delimiter
+        if(checkDelimiter(din_merger(kPosHbdDataType'range)))then
+          --- last delimiter
+          if((not (is_read_inputfifo or mask_delimiter)) = kZero or flag_last1stdelimiter)then
             wren_outputfifo <= '1';
             din_outputfifo  <= din_merger;
 
+            -- 1st delimiter --
             if(flag_wait2nddelimiter = kZero)then
-              -- 1st delimiter --
-              din_outputfifo(kPosHbdFlag'range)  <= din_merger(kPosHbdFlag'range) or genFlagVector(kIndexLHbfNumMismatch, check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch);
+              din_outputfifo(kPosHbdFlag'range)   <= din_merger(kPosHbdFlag'range) or delimiter_flag or genFlagVector(kIndexLHbfNumMismatch, check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch);
+              din_outputfifo(kPosHbdOffset'range)  <= std_logic_vector( cal_delimiter_offset(unsigned(din_merger(kPosHbdOffset'range)),delimiter_offset) );
+              hbfnum_mismatch                     <= check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch; 
 
-              delimiter1st_flagbits                         <= (others=>'0');
-
-              hbfnum_mismatch  <= check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch;
+            -- 2nd delimiter --
             else
-              -- 2nd delimiter --
-              hbfnum_mismatch       <= '0';
+              din_outputfifo(kPosHbdUserReg'range) <= din_merger(kPosHbdUserReg'range) or delimiter_userreg;
+              din_outputfifo(kPosHbdGenSize'range) <= std_logic_vector( unsigned(din_merger(kPosHbdGenSize'range)) + delimiter_gensize );
+              delimiter_flag        <= (others=>'0');
+              delimiter_offset      <= (others=>'0');
+              delimiter_userreg     <= (others=>'0');
+              delimiter_gensize     <= (others=>'0');
               hbfnum_is_registered  <= '0';
+              hbfnum_mismatch       <= '0';
             end if;
-          else                                                                        --- no last delimiter
+          
+          --- no last delimiter
+          else
             wren_outputfifo <= '0';
-            din_outputfifo  <= (others=>'Z');
 
-            if(flag_wait2nddelimiter = kZero)then   -- record flag
-              delimiter1st_flagbits <= din_merger(kPosHbdFlag'range) or delimiter1st_flagbits;
-
+            -- 1st delimiter --
+            if(flag_wait2nddelimiter = kZero)then
+              delimiter_flag    <= din_merger(kPosHbdFlag'range) or delimiter_flag;
+              delimiter_offset  <= cal_delimiter_offset(unsigned(din_merger(kPosHbdOffset'range)),delimiter_offset);
               if(hbfnum_is_registered = '1') then
-                hbfnum_mismatch  <= check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch;
+                hbfnum_mismatch       <= check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch;
               else
                 hbfnum_is_registered  <= '1';
                 reg_hbfnum            <= din_merger(kPosHbdHBFrame'range);
               end if;
+
+            -- 2nd delimiter --
+            else
+              delimiter_userreg <= din_merger(kPosHbdUserReg'range) or delimiter_userreg;
+              delimiter_gensize <= unsigned(din_merger(kPosHbdGenSize'range)) + delimiter_gensize;
             end if;
           end if;
 
-        elsif(is_read_inputfifo /= kZero)then        -- TDC data
+        -- TDC data
+        elsif(is_read_inputfifo /= kZero)then
             wren_outputfifo <= '1';
             din_outputfifo  <= din_merger;
-        else                                -- not data
+
+        -- not data
+        else
           wren_outputfifo <= '0';
-          --din_outputfifo  <= (others=>'Z');
         end if;
       end if;
     end if;

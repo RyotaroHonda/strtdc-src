@@ -89,6 +89,7 @@ architecture RTL of ODPBlock is
   signal valid_data_trigger     : std_logic_vector(kNumInput -1 downto 0);
 
   -- Delimiter inserter --
+  signal dchannel_hb            : ChannelArrayType(kNumInput-1 downto 0)(kWidthChannel-1 downto 0);
   signal dtiming_hb             : TimingArrayType(kNumInput-1 downto 0)(kWidthTiming-1 downto 0);
   signal dtot_hb                : TOTArrayType(kNumInput-1 downto 0)(kWidthTOT-1 downto 0);
 
@@ -217,30 +218,28 @@ begin
   gen_tdcdata : for i in 0 to kNumInput-1 generate
   begin
     valid_data_trigger(i)   <= triggerGate and valid_data_delay(i);
+    dchannel_hb(i)          <= std_logic_vector(to_unsigned(i, kWidthChannel));
     dtiming_hb(i)           <= hbCount & finecount_data_delay(i);
     dtot_hb(i)              <= std_logic_vector( to_unsigned(0, kWidthTOT-kWidthFineCount)) & finetot_data_delay(i);
-  end generate;
 
   u_delimiterInserter : entity mylib.DelimiterInserter
   generic map
     (
-      kNumInput => kNumInput,
       enDEBUG   => false
     )
     port map
     (
       -- system --
-      genChOffset     => '0',
-
       clk             => baseClk,
       syncReset       => sync_reset,
 
       -- TDC in --
-      validIn         => valid_data_trigger,
-      dInTiming       => dtiming_hb,
-      isLeading       => is_leading_delay,
-      isConflicted    => is_confilicted_delay,
-      dInToT          => dtot_hb,
+      validIn         => valid_data_trigger(i),
+      dInChannel      => dchannel_hb(i),
+      dInTiming       => dtiming_hb(i),
+      isLeading       => is_leading_delay(i),
+      isConflicted    => is_confilicted_delay(i),
+      dInToT          => dtot_hb(i),
 
       -- Delimiter word input --
       validDelimiter  => validDelimiter,
@@ -249,9 +248,11 @@ begin
       hbfThrottlingOn => hbfThrottlingOn,
 
       -- output --
-      validOut        => valid_inserter,
-      dOut            => dout_inserter
+      validOut        => valid_inserter(i),
+      dOut            => dout_inserter(i)
     );
+
+  end generate;
 
   -- Data processing -----------------------------------------------------------
   gen_LTparing : for i in 0 to kNumInput-1 generate
