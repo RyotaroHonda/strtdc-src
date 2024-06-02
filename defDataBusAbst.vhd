@@ -9,6 +9,7 @@ package defDataBusAbst is
 
   -- TDC Data Array ---------------------------------------------------------------------------
   type FineCountArrayType is array (natural range <>) of std_logic_vector;
+  type ChannelArrayType   is array (natural range <>) of std_logic_vector;
   type TimingArrayType    is array (natural range <>) of std_logic_vector;
   type TOTArrayType       is array (natural range <>) of std_logic_vector;
 
