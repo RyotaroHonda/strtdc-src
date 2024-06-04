@@ -300,6 +300,7 @@ begin
       tdcClk          => tdcClk,
       baseClk         => clk,
       hitOut          => hitOut,
+      userReg         => reg_user_for_delimiter,
 
       -- Control registers --
       tdcMask         => reg_tdc_mask(kNumInput-1 downto 0),
@@ -341,7 +342,7 @@ begin
     )
     port map(
       clk                 => clk,
-      rst                 => rst or pre_vital_reset,
+      rst                 => rst or pre_vital_reset or (not daq_is_running),
       lhbfNumMismatch     => local_hbf_num_mismatch,
 
       -- ODPBlock input --
@@ -371,9 +372,8 @@ begin
   -- Replace 2nd delimiter with new delimiter --
   u_replacer : entity mylib.DelimiterReplacer
     port map(
-      syncReset           => sync_reset,
+      syncReset           => sync_reset or pre_vital_reset or (not daq_is_running),
       clk                 => clk,
-      userReg             => reg_user_for_delimiter,
 
       -- Data In --
       validIn             => vital_valid,

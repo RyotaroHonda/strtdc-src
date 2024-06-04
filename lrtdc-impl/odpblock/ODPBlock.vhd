@@ -21,6 +21,7 @@ entity ODPBlock is
     tdcClk          : in  std_logic_vector(kNumTdcClock-1 downto 0);
     baseClk         : in  std_logic;
     hitOut          : out std_logic_vector(kNumInput-1 downto 0);
+    userReg         : in  std_logic_vector(kPosHbdUserReg'length-1 downto 0);
 
     -- Control registers --
     tdcMask         : in  std_logic_vector(kNumInput-1 downto 0);
@@ -89,7 +90,6 @@ architecture RTL of ODPBlock is
   signal valid_data_trigger     : std_logic_vector(kNumInput -1 downto 0);
 
   -- Delimiter inserter --
-  signal dchannel_hb            : ChannelArrayType(kNumInput-1 downto 0)(kWidthChannel-1 downto 0);
   signal dtiming_hb             : TimingArrayType(kNumInput-1 downto 0)(kWidthTiming-1 downto 0);
   signal dtot_hb                : TOTArrayType(kNumInput-1 downto 0)(kWidthTOT-1 downto 0);
 
@@ -218,39 +218,40 @@ begin
   gen_tdcdata : for i in 0 to kNumInput-1 generate
   begin
     valid_data_trigger(i)   <= triggerGate and valid_data_delay(i);
-    dchannel_hb(i)          <= std_logic_vector(to_unsigned(i, kWidthChannel));
     dtiming_hb(i)           <= hbCount & finecount_data_delay(i);
     dtot_hb(i)              <= std_logic_vector( to_unsigned(0, kWidthTOT-kWidthFineCount)) & finetot_data_delay(i);
 
-  u_delimiterInserter : entity mylib.DelimiterInserter
-  generic map
-    (
-      enDEBUG   => false
-    )
-    port map
-    (
-      -- system --
-      clk             => baseClk,
-      syncReset       => sync_reset,
+    u_delimiterInserter : entity mylib.DelimiterInserter
+      generic map
+        (
+          kChannelNum  => std_logic_vector(to_unsigned(i, kWidthChannel)),
+          enDEBUG      => false
+        )
+        port map
+        (
+          -- system --
+          clk             => baseClk,
+          syncReset       => sync_reset,
+          userRegIn       => userReg,
 
-      -- TDC in --
-      validIn         => valid_data_trigger(i),
-      dInChannel      => dchannel_hb(i),
-      dInTiming       => dtiming_hb(i),
-      isLeading       => is_leading_delay(i),
-      isConflicted    => is_confilicted_delay(i),
-      dInToT          => dtot_hb(i),
+          -- TDC in --
+          validIn         => valid_data_trigger(i),
 
-      -- Delimiter word input --
-      validDelimiter  => validDelimiter,
-      dInDelimiter    => dInDelimiter,
-      daqOn           => daqOn,
-      hbfThrottlingOn => hbfThrottlingOn,
+          dInTiming       => dtiming_hb(i),
+          isLeading       => is_leading_delay(i),
+          isConflicted    => is_confilicted_delay(i),
+          dInToT          => dtot_hb(i),
 
-      -- output --
-      validOut        => valid_inserter(i),
-      dOut            => dout_inserter(i)
-    );
+          -- Delimiter word input --
+          validDelimiter  => validDelimiter,
+          dInDelimiter    => dInDelimiter,
+          daqOn           => daqOn,
+          hbfThrottlingOn => hbfThrottlingOn,
+
+          -- output --
+          validOut        => valid_inserter(i),
+          dOut            => dout_inserter(i)
+        );
 
   end generate;
 

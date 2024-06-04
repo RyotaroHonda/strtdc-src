@@ -44,6 +44,8 @@ entity ODPBlock is
     totMinTh        : in  std_logic_vector(kWidthTOT-1 downto 0);
     totMaxTh        : in  std_logic_vector(kWidthTOT-1 downto 0);
 
+    testModeIn      : in std_logic;
+
     -- Data flow control --
     daqOn           : in  std_logic;
     hbfThrottlingOn : in  std_logic;
@@ -58,6 +60,7 @@ entity ODPBlock is
 
     -- Data In --
     sigIn           : in  std_logic_vector(kNumInput-1 downto 0);
+    calibIn         : in  std_logic;
 
     -- Data Out --
     validOut        : out std_logic_vector(kNumInput-1 downto 0);
@@ -107,14 +110,14 @@ architecture RTL of ODPBlock is
   signal hdout_fcl_trailing     : std_logic_vector(kNumInput -1 downto 0);
   signal dout_fcl_trailing      : dFclType;
 
-  type dSemiType is array (integer range kNumInput-1 downto 0) of std_logic_vector(kWidthSemi-1 downto 0);
-  signal semi_count_leading_1   : dSemiType;
-  signal semi_count_leading_2   : dSemiType;
-  signal semi_count_leading_3   : dSemiType;
-
-  signal semi_count_trailing_1  : dSemiType;
-  signal semi_count_trailing_2  : dSemiType;
-  signal semi_count_trailing_3  : dSemiType;
+--  type dSemiType is array (integer range kNumInput-1 downto 0) of std_logic_vector(kWidthSemi-1 downto 0);
+--  signal semi_count_leading_1   : dSemiType;
+--  signal semi_count_leading_2   : dSemiType;
+--  signal semi_count_leading_3   : dSemiType;
+--
+--  signal semi_count_trailing_1  : dSemiType;
+--  signal semi_count_trailing_2  : dSemiType;
+--  signal semi_count_trailing_3  : dSemiType;
 
   -- Generate FineCount /(Estimator+SemiFine) --
   constant fzero                : std_logic_vector(kWidthFineCount-1 downto 0):= (others => '0');
@@ -212,9 +215,11 @@ begin
       port map(
         RST     => rst,
         tdcClk  => tdcClk,
+        testModeIn => testModeIn,
 
         -- input --
         sigIn   => sigIn(i),
+        calibIn => calibIn,
 
         -- output
         TapOut  => tap_out(i)
@@ -265,7 +270,7 @@ begin
 
         -- module input --
         hdIn        => valid_raw_leading(i),
-        dIn         => raw_fc_leading(i)(kWidthFine-1 downto 0),
+        dIn         => raw_fc_leading(i),
 
         -- module output --
         hdOut       => hdout_fcl_leading(i),
@@ -313,32 +318,32 @@ begin
 
         -- module input --
         hdIn        => valid_raw_trailing(i),
-        dIn         => raw_fc_trailing(i)(kWidthFine-1 downto 0),
+        dIn         => raw_fc_trailing(i),
 
         -- module output --
         hdOut       => hdout_fcl_trailing(i),
         dOut        => dout_fcl_trailing(i)
         );
 
-    u_semi_buf : process(baseClk)
-    begin
-      if(baseClk'event and baseClk = '1') then
-        semi_count_leading_1(i)  <= raw_fc_leading(i)(7 downto 6);
-        semi_count_leading_2(i)  <= semi_count_leading_1(i);
-        semi_count_leading_3(i)  <= semi_count_leading_2(i);
-
-        semi_count_trailing_1(i) <= raw_fc_trailing(i)(7 downto 6);
-        semi_count_trailing_2(i) <= semi_count_trailing_1(i);
-        semi_count_trailing_3(i) <= semi_count_trailing_2(i);
-      end if;
-    end process;
+--    u_semi_buf : process(baseClk)
+--    begin
+--      if(baseClk'event and baseClk = '1') then
+--        semi_count_leading_1(i)  <= raw_fc_leading(i)(kWidthFine+1 downto kWidthFine);
+--        semi_count_leading_2(i)  <= semi_count_leading_1(i);
+--        semi_count_leading_3(i)  <= semi_count_leading_2(i);
+--
+--        semi_count_trailing_1(i) <= raw_fc_trailing(i)(kWidthFine+1 downto kWidthFine);
+--        semi_count_trailing_2(i) <= semi_count_trailing_1(i);
+--        semi_count_trailing_3(i) <= semi_count_trailing_2(i);
+--      end if;
+--    end process;
 
     -- Define FineCount of HR-TDC --
     valid_leading(i)      <= hdout_fcl_leading(i);
     valid_trailing(i)     <= hdout_fcl_trailing(i);
 
-    pos_fc_leading(i)     <= semi_count_leading_3(i)  & dout_fcl_leading(i);
-    pos_fc_trailing(i)    <= semi_count_trailing_3(i) & dout_fcl_trailing(i);
+    pos_fc_leading(i)     <= dout_fcl_leading(i);
+    pos_fc_trailing(i)    <= dout_fcl_trailing(i);
     finecount_leading(i)  <= std_logic_vector(unsigned(fzero) - unsigned(pos_fc_leading(i)));
     finecount_trailing(i) <= std_logic_vector(unsigned(fzero) - unsigned(pos_fc_trailing(i)));
     -- Define FineCount of HR-TDC --

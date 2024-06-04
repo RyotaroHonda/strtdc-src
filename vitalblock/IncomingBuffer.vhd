@@ -44,7 +44,7 @@ architecture Behavioral of IncomingBuffer is
   signal almost_full_fifo  : std_logic_vector(kNumStrInput-1 downto 0);
   signal wr_ack_fifo       : std_logic_vector(kNumStrInput-1 downto 0);
 
-  constant kNumBitDepthIncomingFifo : integer  := 6;
+  constant kNumBitDepthIncomingFifo : integer  := 9;
   type dDateCountIncomingFifoType is array ( integer range kNumStrInput-1 downto 0) of std_logic_vector(kNumBitDepthIncomingFifo-1 downto 0); -- for count the data count of incoming FIFO
   signal data_count_fifo   : dDateCountIncomingFifoType;
   signal prog_full_fifo    : std_logic_vector(kNumStrInput-1 downto 0);

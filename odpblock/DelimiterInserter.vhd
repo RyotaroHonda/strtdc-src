@@ -9,15 +9,16 @@ use mylib.defDelimiter.all;
 
 entity DelimiterInserter is
   generic(
+    kChannelNum : std_logic_vector(kPosChannel'length-1 downto 0);
     enDEBUG     : boolean:= false
   );
   port(
     clk         : in std_logic;   -- base clock
     syncReset   : in std_logic;   -- Synchronous reset
+    userRegIn   : in std_logic_vector(kPosHbdUserReg'length-1 downto 0);
 
     -- TDC in --
     validIn         : in  std_logic;
-    dInChannel      : in  std_logic_vector(kPosChannel'length-1 downto 0);
     dInTiming       : in  std_logic_vector(kPosTiming'length-1 downto 0);
     isLeading       : in  std_logic;
     isConflicted    : in  std_logic;
@@ -29,7 +30,7 @@ entity DelimiterInserter is
     daqOn           : in  std_logic;
     hbfThrottlingOn : in  std_logic;
 
-    -- Pairing out --
+    -- Data out --
     validOut        : out std_logic;
     dOut            : out std_logic_vector(kWidthData-1 downto 0)
   );
@@ -46,11 +47,15 @@ architecture RTL of DelimiterInserter is
   signal tdc_data             : std_logic_vector(kWidthData-1 downto 0);
 
   -- data merge
-  signal buff_delimiter_valid : std_logic_vector(2 downto 0)  := (others=>'0');
-  signal buff_delimiter_data  : DataArrayType(2 downto 0);
+  constant kBuffLength         : integer:= 3;
+  signal buff_delimiter_valid : std_logic_vector(kBuffLength-1 downto 0)  := (others=>'0');
+  signal buff_delimiter_data  : DataArrayType(kBuffLength-1 downto 0);
 
-  signal buff_tdc_valid       : std_logic_vector(2 downto 0)  := (others=>'0');
-  signal buff_tdc_data        : DataArrayType(2 downto 0);
+  signal delayed_daq_on       : std_logic;
+  signal sr_daq_on            : std_logic_vector(kBuffLength-1 downto 0);
+
+  signal buff_tdc_valid       : std_logic_vector(kBuffLength-1 downto 0)  := (others=>'0');
+  signal buff_tdc_data        : DataArrayType(kBuffLength-1 downto 0);
 
   signal merge_valid          : std_logic;
   signal merge_data           : std_logic_vector(kWidthData-1 downto 0);
@@ -90,7 +95,7 @@ begin
           end if;
 
           tdc_valid                           <= '1';
-          tdc_data(kPosChannel'range)         <= dInChannel;
+          tdc_data(kPosChannel'range)         <= kChannelNum;
           tdc_data(kPosTot'range)             <= dInToT;
           tdc_data(kPosTiming'high downto 0)  <= (kPosTiming'range => dInTiming, others => '0');
         else
@@ -99,20 +104,23 @@ begin
       end if;
     end if;
   end process;
-  
+
   -- data merge
+  delayed_daq_on  <= sr_daq_on(kBuffLength-1);
   buff_delimiter : process(clk)
   begin
     if(clk'event and clk = '1') then
-      buff_delimiter_valid(2) <= delimiter_valid;
-      buff_delimiter_data(2)  <= delimiter_data;
-      buff_delimiter_valid(1) <= buff_delimiter_valid(2);
-      buff_delimiter_data(1)  <= buff_delimiter_data(2);
-      buff_delimiter_valid(0) <= buff_delimiter_valid(1);
-      buff_delimiter_data(0)  <= buff_delimiter_data(1);
+      sr_daq_on <= sr_daq_on(kBuffLength-2 downto 0) & daqOn;
+
+      buff_delimiter_valid(kBuffLength-1) <= delimiter_valid;
+      buff_delimiter_data(kBuffLength-1)  <= delimiter_data;
+      for i in 0 to kBuffLength-2 loop
+        buff_delimiter_valid(i) <= buff_delimiter_valid(i+1);
+        buff_delimiter_data(i)  <= buff_delimiter_data(i+1);
+      end loop;
     end if;
   end process;
-  
+
   buff_tdc_2 : process(clk)
   begin
     if(clk'event and clk = '1') then
@@ -131,7 +139,7 @@ begin
       end if;
     end if;
   end process;
-  
+
   buff_tdc_1 : process(clk)
   begin
     if(clk'event and clk = '1') then
@@ -153,7 +161,7 @@ begin
       end if;
     end if;
   end process;
-  
+
   buff_tdc_0 : process(clk)
   begin
     if(clk'event and clk = '1') then
@@ -175,36 +183,37 @@ begin
       end if;
     end if;
   end process;
-  
+
   -- data output
   merger : process(clk)
   begin
     if(clk'event and clk = '1') then
       -- reset or daq_off
-      if(syncReset = '1' or daqOn = '0') then
+      if(syncReset = '1' or delayed_daq_on = '0') then
         data_valid_out    <= '0';
         is_2nd_delimiter  <= '0';
         num_word          <= (others=>'0');
-      
+
       -- delimiter
       elsif(buff_delimiter_valid(0)='1')then
         data_valid_out    <= '1';
-        data_out          <= buff_delimiter_data(0);
         -- insert the gen tdc size into the 2nd delimiter word.
         if(is_2nd_delimiter='1')then
           data_out(kPosHbdGenSize'range) <= std_logic_vector(num_word) & "000";
+          data_out(kPosHbdUserReg'range) <= userRegIn;
           is_2nd_delimiter  <= '0';
           num_word          <= (others=>'0');
         else
+          data_out          <= buff_delimiter_data(0);
           is_2nd_delimiter  <= '1';
         end if;
-      
+
       -- tdc data
       else
         data_valid_out  <= buff_tdc_valid(0);
         data_out        <= buff_tdc_data(0);
         -- count the leading tdc data
-        if(buff_tdc_data(0)(kPosHbdDataType'range)=kDatatypeTDCData)then
+        if(buff_tdc_data(0)(kPosHbdDataType'range)=kDatatypeTDCData and buff_tdc_valid(0) = '1')then
           num_word      <= num_word + 1;
         end if;
 
