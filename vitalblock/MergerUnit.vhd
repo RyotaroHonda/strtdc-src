@@ -168,7 +168,7 @@ architecture Behavioral of MergerUnit is
   function cal_delimiter_offset(  input_offset        : unsigned(kPosHbdOffset'length-1 downto 0);
                                   accumulation_offset : unsigned(kPosHbdOffset'length-1 downto 0)
                                   ) return unsigned is
-    variable output_offsset : unsigned(kPosHbdOffset'length-1 downto 0);
+    variable output_offsset : unsigned(kPosHbdOffset'length-1 downto 0):= (others => '0');
   begin
     output_offsset  := (others=>'0');
     if(kOffsetBitShift=0)then
@@ -327,18 +327,24 @@ begin
           --- last delimiter
           if((not (is_read_inputfifo or mask_delimiter)) = kZero or flag_last1stdelimiter)then
             wren_outputfifo <= '1';
-            din_outputfifo  <= din_merger;
+            --din_outputfifo  <= din_merger;
 
             -- 1st delimiter --
             if(flag_wait2nddelimiter = kZero)then
-              din_outputfifo(kPosHbdFlag'range)   <= din_merger(kPosHbdFlag'range) or delimiter_flag or genFlagVector(kIndexLHbfNumMismatch, check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch);
-              din_outputfifo(kPosHbdOffset'range)  <= std_logic_vector( cal_delimiter_offset(unsigned(din_merger(kPosHbdOffset'range)),delimiter_offset) );
-              hbfnum_mismatch                     <= check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch; 
+              din_outputfifo(kPosHbdDataType'range) <= din_merger(kPosHbdDataType'range);
+              din_outputfifo(kPosHbdReserve1'range) <= din_merger(kPosHbdReserve1'range);
+              din_outputfifo(kPosHbdFlag'range)     <= din_merger(kPosHbdFlag'range) or delimiter_flag or genFlagVector(kIndexLHbfNumMismatch, check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch);
+              din_outputfifo(kPosHbdOffset'range)   <= std_logic_vector( cal_delimiter_offset(unsigned(din_merger(kPosHbdOffset'range)),delimiter_offset) );
+              din_outputfifo(kPosHbdHBFrame'range)  <= din_merger(kPosHbdHBFrame'range);
+
+              hbfnum_mismatch                       <= check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch;
 
             -- 2nd delimiter --
             else
-              din_outputfifo(kPosHbdUserReg'range) <= din_merger(kPosHbdUserReg'range) or delimiter_userreg;
-              din_outputfifo(kPosHbdGenSize'range) <= std_logic_vector( unsigned(din_merger(kPosHbdGenSize'range)) + delimiter_gensize );
+              din_outputfifo(kPosHbdDataType'range) <= din_merger(kPosHbdDataType'range);
+              din_outputfifo(kPosHbdReserve1'range) <= din_merger(kPosHbdReserve1'range);
+              din_outputfifo(kPosHbdUserReg'range)  <= din_merger(kPosHbdUserReg'range) or delimiter_userreg;
+              din_outputfifo(kPosHbdGenSize'range)  <= std_logic_vector( unsigned(din_merger(kPosHbdGenSize'range)) + delimiter_gensize );
               delimiter_flag        <= (others=>'0');
               delimiter_offset      <= (others=>'0');
               delimiter_userreg     <= (others=>'0');
@@ -346,7 +352,7 @@ begin
               hbfnum_is_registered  <= '0';
               hbfnum_mismatch       <= '0';
             end if;
-          
+
           --- no last delimiter
           else
             wren_outputfifo <= '0';
