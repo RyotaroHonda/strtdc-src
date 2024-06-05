@@ -20,6 +20,7 @@ use mylib.defStrHRTDC.all;
 entity StrHrTdc is
   generic(
     kNumInput       : integer:= 32;
+    kDivisionRatio  : integer:= 4;
     kNumScrThr      : integer:= 5;
     enDEBUG         : boolean:= false
     );
@@ -43,9 +44,7 @@ entity StrHrTdc is
 
     -- DAQ status ------------------------------------------------
     lHbfNumMismatch   : in std_logic;
-    inThrottlingT2On  : out std_logic;
-    outThrottlingOn   : in std_logic;
-    emptyLinkInBufIn  : in std_logic;
+--    outThrottlingOn   : in std_logic;
 
     -- LACCP -----------------------------------------------------
     heartbeatIn       : in std_logic;
@@ -56,8 +55,6 @@ entity StrHrTdc is
 
     LaccpFineOffset   : in signed(kWidthLaccpFineOffset-1 downto 0);
 
-
-
     -- Streaming TDC interface ------------------------------------
     sigIn             : in std_logic_vector(kNumInput-1 downto 0);
     calibIn           : in std_logic;
@@ -66,9 +63,11 @@ entity StrHrTdc is
 
     dataRdEn          : in  std_logic;                                 --output fifo read enable
     dataOut           : out std_logic_vector(kWidthData-1 downto 0);   --output fifo data out
-    dataEmpty         : out std_logic;                                 --output fifo empty flag
-    dataAlmostEmpty   : out std_logic;                                 --output fifo almost empty flag
     dataRdValid       : out std_logic;                                 --output fifo valid flag
+
+    -- LinkBuffer interface ---------------------------------------
+    pfullLinkBufIn    : in std_logic;
+    emptyLinkInBufIn  : in std_logic;
 
     -- Local bus --
     addrLocalBus        : in LocalAddressType;
@@ -126,6 +125,7 @@ architecture RTL of StrHrTdc is
   signal hbf_throttling_on          : std_logic;
   signal reg_hbf_throttling_ratio   : std_logic_vector(kNumHbfMode-1 downto 0);
   signal input_throttling_type2_on  : std_logic;
+  signal output_throttling_on       : std_logic;
 
   -- Delimiter ----------------------------------------------------
   signal delimiter_flags        : std_logic_vector(kWidthDelimiterFlag-1 downto 0);
@@ -167,16 +167,16 @@ begin
   -- ======================================================================
 
   u_sync_empty   : entity mylib.synchronizer port map(clk, emptyLinkInBufIn, sync_empty_in);
-  u_sync_outthr  : entity mylib.synchronizer port map(clk, outThrottlingOn,  sync_out_thrott_on);
+--  u_sync_outthr  : entity mylib.synchronizer port map(clk, outThrottlingOn,  sync_out_thrott_on);
   u_sync_tcpon   : entity mylib.synchronizer port map(clk, linkActive,       sync_link_active);
 
 
   daqOn <= daq_is_running;
   scrThrEn          <= scr_thr_on;
-  throttling_on(0)  <= input_throttling_type2_on or hbf_throttling_on;
+  throttling_on(0)  <= input_throttling_type2_on or output_throttling_on or hbf_throttling_on;
   throttling_on(1)  <= '0';
   throttling_on(2)  <= input_throttling_type2_on;
-  throttling_on(3)  <= sync_out_thrott_on;
+  throttling_on(3)  <= output_throttling_on;
   throttling_on(4)  <= hbf_throttling_on;
 
   local_hbf_num_mismatch  <= lhbfNumMismatch;
@@ -324,11 +324,12 @@ begin
     port map(
       -- System --
       genChOffset   => genChOffset,
-      hitOut        => hitOut,
 
       rst           => rst,
       tdcClk        => tdcClk,
       baseClk       => clk,
+      hitOut        => hitOut,
+      userReg       => reg_user_for_delimiter,
 
       -- Control registers --
       regThrough      => reg_through,
@@ -372,14 +373,14 @@ begin
   -- vital block --
   u_VitalBlock: entity mylib.VitalBlock
     generic map(
-      kTdcType        => "HRTDC",
+      kTdcType        => "LRTDC",
       kNumInput       => kNumInput,
-      kDivisionRatio  => 1,
+      kDivisionRatio  => kDivisionRatio,
       enDEBUG         => false
     )
     port map(
       clk                 => clk,
-      rst                 => rstUser or pre_vital_reset,
+      rst                 => rstUser or pre_vital_reset or (not daq_is_running),
       lhbfNumMismatch     => open,
 
       -- ODPBlock input --
@@ -391,18 +392,18 @@ begin
       bufferProgFull      => incoming_buf_pfull,
 
       -- Throttling status --
-      outThrottlingOn     => open,
+      outThrottlingOn     => output_throttling_on,
       inThrottlingT2On    => input_throttling_type2_on,
 
       -- Link buf status --
-      pfullLinkBufIn      => '0',
-      emptyLinkInBufIn    => '1',
+      pfullLinkBufIn      => pfullLinkBufIn,
+      emptyLinkInBufIn    => emptyLinkInBufIn,
 
       -- Output --
       rdenIn              => dataRdEn,
       dataOut             => dataOut,
-      emptyOut            => dataEmpty,
-      almostEmptyOut      => dataAlmostEmpty,
+      emptyOut            => open,
+      almostEmptyOut      => open,
       validOut            => dataRdValid
     );
 

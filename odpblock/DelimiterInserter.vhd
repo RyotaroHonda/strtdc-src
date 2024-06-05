@@ -9,13 +9,13 @@ use mylib.defDelimiter.all;
 
 entity DelimiterInserter is
   generic(
-    kChannelNum : std_logic_vector(kPosChannel'length-1 downto 0);
     enDEBUG     : boolean:= false
   );
   port(
     clk         : in std_logic;   -- base clock
     syncReset   : in std_logic;   -- Synchronous reset
     userRegIn   : in std_logic_vector(kPosHbdUserReg'length-1 downto 0);
+    channelNum  : in std_logic_vector(kPosChannel'length-1 downto 0);
 
     -- TDC in --
     validIn         : in  std_logic;
@@ -95,7 +95,7 @@ begin
           end if;
 
           tdc_valid                           <= '1';
-          tdc_data(kPosChannel'range)         <= kChannelNum;
+          tdc_data(kPosChannel'range)         <= channelNum;
           tdc_data(kPosTot'range)             <= dInToT;
           tdc_data(kPosTiming'high downto 0)  <= (kPosTiming'range => dInTiming, others => '0');
         else

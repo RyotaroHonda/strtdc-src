@@ -15,6 +15,9 @@ package defTDC is
   -- kWidthFine + kWidthSemiFine --
   constant kWidthFineCount  : integer := 13;
 
+  -- Channel ---------------------------------------------------------------------------
+  constant kWidthChannel    : integer  := kPosChannel'length;
+
   -- TdcUnit ---------------------------------------------------------------------------
   constant kWidthTiming     : positive  := kPosTiming'length;
 

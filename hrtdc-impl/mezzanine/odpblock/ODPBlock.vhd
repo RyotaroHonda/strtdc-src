@@ -27,6 +27,7 @@ entity ODPBlock is
     tdcClk          : in std_logic;
     baseClk         : in std_logic;
     hitOut          : out std_logic_vector(kNumInput-1 downto 0);
+    userReg         : in  std_logic_vector(kPosHbdUserReg'length-1 downto 0);
 
     -- Control regisers --
     regThrough      : in std_logic;
@@ -77,6 +78,15 @@ architecture RTL of ODPBlock is
   signal sync_reset       : std_logic;
   signal sync_reset_tdc   : std_logic_vector(kNumInput-1 downto 0);
   attribute keep of sync_reset_tdc  : signal is "true";
+
+  function GetChOffset(genChOffset : std_logic) return integer is
+  begin
+    if(genChOffset = '1') then
+      return 32;
+    else
+      return 0;
+    end if;
+  end function;
 
   -- Signal decralation ---------------------------------------------
   -- system --
@@ -410,39 +420,39 @@ begin
     valid_data_trigger(i)   <= triggerGate and valid_data_delay(i);
     dtiming_hb(i)           <= hbCount & finecount_data_delay(i);
     dtot_hb(i)              <= std_logic_vector( to_unsigned(0, kWidthTOT-kWidthFineCount)) & finetot_data_delay(i);
+
+    u_delimiterInserter : entity mylib.DelimiterInserter
+      generic map
+        (
+          enDEBUG       => false
+        )
+      port map
+      (
+        -- system --
+        clk             => baseClk,
+        syncReset       => sync_reset,
+        userRegIn       => userReg,
+        channelNum      => std_logic_vector(to_unsigned(i+GetChOffset(genChOffset), kWidthChannel)),
+
+        -- TDC in --
+        validIn         => valid_data_trigger(i),
+        dInTiming       => dtiming_hb(i),
+        isLeading       => is_leading_delay(i),
+        isConflicted    => is_confilicted_delay(i),
+        dInToT          => dtot_hb(i),
+
+        -- Delimiter word input --
+        validDelimiter  => validDelimiter,
+        dInDelimiter    => dInDelimiter,
+        daqOn           => daqOn,
+        hbfThrottlingOn => hbfThrottlingOn,
+
+        -- output --
+        validOut        => valid_inserter(i),
+        dOut            => dout_inserter(i)
+      );
   end generate;
 
-  u_delimiterInserter : entity mylib.DelimiterInserter
-    generic map
-      (
-        kNumInput   => kNumInput,
-        enDEBUG     => false
-      )
-    port map
-    (
-      -- system --
-      genChOffset     => genChOffset,
-
-      clk             => baseClk,
-      syncReset       => sync_reset,
-
-      -- TDC in --
-      validIn         => valid_data_trigger,
-      dInTiming       => dtiming_hb,
-      isLeading       => is_leading_delay,
-      isConflicted    => is_confilicted_delay,
-      dInToT          => dtot_hb,
-
-      -- Delimiter word input --
-      validDelimiter  => validDelimiter,
-      dInDelimiter    => dInDelimiter,
-      daqOn           => daqOn,
-      hbfThrottlingOn => hbfThrottlingOn,
-
-      -- output --
-      validOut        => valid_inserter,
-      dOut            => dout_inserter
-    );
 
   -- Data processing -----------------------------------------------------------
   gen_LTparing : for i in 0 to kNumInput-1 generate
