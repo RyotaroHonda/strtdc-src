@@ -29,6 +29,7 @@ entity DDRReceiverV2 is
     (
       -- system port --
       rst       : in  std_logic;
+      rstBuf    : in  std_logic;
       clk       : in  std_logic;
       clkIdelayRef  : in std_logic;
       idCtrlReady   : in std_logic;
@@ -55,6 +56,7 @@ architecture RTL of DDRReceiverV2 is
 
   -- System --
   signal sync_reset             : std_logic;
+  signal sync_reset_buf         : std_logic;
   signal sync_reset_ddr         : std_logic;
   signal idelayctrl_ready       : std_logic;
 
@@ -192,7 +194,7 @@ begin
     port map ( O => clk_parallel, CE => '1', CLR => '0', I => clk_ddr );
 
   -- DDR serdes -----------------------------------------------------------
-  rst_ddr_buf           <= start_ddrrx_init or sync_reset;
+  rst_ddr_buf           <= start_ddrrx_init or sync_reset or sync_reset_buf;
   re_ddr_buffer         <= and_reduce(re_fifo);
 
   gen_iserdes : for i in 0 to kNumDDR-1 generate
@@ -273,6 +275,9 @@ begin
 
   u_reset_gen_sys   : entity mylib.ResetGen
     port map(rst, clk, sync_reset);
+
+  u_reset_gen_buf   : entity mylib.ResetGen
+    port map(rstBuf, clk, sync_reset_buf);
 
 
 end RTL;
