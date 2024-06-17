@@ -17,9 +17,10 @@ entity VitalBlockBase is
     clk                 : in STD_LOGIC;  -- Base clock
 
     -- status input --
-    intputThrottlingOn  : in std_logic; -- Signal indicating InputThrottlingType2 is active
-    pfullLinkIn         : in std_logic; -- Programmable full flag from LinkBuffer
-    emptyLinkIn         : in std_logic; -- Empty flag from LinkBuffer
+    linkActive          : std_logic;
+    --intputThrottlingOn  : in std_logic; -- Signal indicating InputThrottlingType2 is active
+    --pfullLinkIn         : in std_logic; -- Programmable full flag from LinkBuffer
+    --emptyLinkIn         : in std_logic; -- Empty flag from LinkBuffer
 
     -- status output --
     progFullFifo        : out STD_LOGIC; -- Back Merger FIFO programmed full signal
@@ -78,7 +79,7 @@ begin
 
   read_enable_to_merger   <= '1' when(output_throttling_on = '1') else rdEnIn;
 
-  u_sync_inthrott : entity mylib.synchronizer port map(clk, intputThrottlingOn, sync_in_throttl_on);
+  --u_sync_inthrott : entity mylib.synchronizer port map(clk, intputThrottlingOn, sync_in_throttl_on);
 
   -- Back Merger --
   u_BMGR : entity mylib.MergerUnit
@@ -89,7 +90,7 @@ begin
     )
     port map(
       clk                 => clk,
-      syncReset           => sync_reset,
+      syncReset           => sync_reset or (not linkActive),
       progFullFifo        => pfull_back_merger,
       hbfNumMismatch      => local_hbf_num_mismatch,
 
@@ -107,42 +108,15 @@ begin
     );
 
 
-  u_OutThrottle: entity mylib.OutputThrottling
-    generic map(
-      enDEBUG => true
-    )
-    port map(
-      syncReset     => sync_reset,
-      clk           => clk,
-
-      -- status input --
-      intputThrottlingOn  => sync_in_throttl_on,
-      pfullLinkIn         => pfullLinkIn,
-      emptyLinkIn         => emptyLinkIn,
-
-      -- Status output --
-      isWorking           => output_throttling_on,
-
-      -- Data In --
-      validIn             => valid_mgr,
-      dIn                 => dout_mgr,
-
-      -- Data Out --
-      validOut            => othrott_valid,
-      dOut                => othrott_data
-
-    );
-
   -- Replace 2nd delimiter with new delimiter --
   u_replacer : entity mylib.DelimiterReplacer
     port map(
       syncReset           => sync_reset,
       clk                 => clk,
-      userReg             => (others => '0'),
 
       -- Data In --
-      validIn             => othrott_valid,
-      dIn                 => othrott_data,
+      validIn             => valid_mgr,
+      dIn                 => dout_mgr,
 
       -- Data Out --
       validOut            => validOut,
