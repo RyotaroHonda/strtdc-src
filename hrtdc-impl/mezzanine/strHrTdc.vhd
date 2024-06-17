@@ -95,6 +95,8 @@ architecture RTL of StrHrTdc is
   constant kWidthVitalReset   : integer:= 8;
   signal sr_vital_reset       : std_logic_vector(kWidthVitalReset-1 downto 0);
 
+  signal laccp_fine_offset    : signed(kWidthLaccpFineOffset-1 downto 0);
+
   -- Internal signal declaration ---------------------------------
   -- Scaler --
   type ThrCountType   is array(kNumScrThr-1 downto 0) of unsigned(kWidthHbCount-1 downto 0);
@@ -294,6 +296,7 @@ begin
   delimiter_flags(kIndexHbfThrottling)    <= hbf_throttling_on;
 
   -- Delimiter generation --block --
+  laccp_fine_offset <= LaccpFineOffset when(reg_enbypass(kIndexOfsCorr) = '1') else (others => '0');
   u_DelimiterGen: entity mylib.DelimiterGenerator
     generic map(
       enDEBUG     => false
@@ -308,7 +311,7 @@ begin
       -- LACCP -----------------------------------------
       hbCount           => hbCount,
       hbfNumber         => hbfNumber,
-      LaccpFineOffset   => LaccpFineOffset,
+      LaccpFineOffset   => laccp_fine_offset,
 
       -- Delimiter data output --
       validDelimiter    => delimiter_data_valid,
@@ -330,6 +333,10 @@ begin
       baseClk       => clk,
       hitOut        => hitOut,
       userReg       => reg_user_for_delimiter,
+
+      -- LACCP --
+      enOfsCorr         => reg_enbypass(kIndexOfsCorr),
+      LaccpFineOffset   => LaccpFineOffset,
 
       -- Control registers --
       regThrough      => reg_through,
