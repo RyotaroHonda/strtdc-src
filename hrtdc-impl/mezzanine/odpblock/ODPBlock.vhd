@@ -12,6 +12,7 @@ use mylib.defFineCountLUT.all;
 use mylib.defDataBusAbst.all;
 use mylib.defDelimiter.all;
 use mylib.defTDC.all;
+use mylib.defLACCP.all;
 
 
 entity ODPBlock is
@@ -28,6 +29,10 @@ entity ODPBlock is
     baseClk         : in std_logic;
     hitOut          : out std_logic_vector(kNumInput-1 downto 0);
     userReg         : in  std_logic_vector(kPosHbdUserReg'length-1 downto 0);
+
+    -- LACCP --
+    enOfsCorr       : in std_logic;
+    LaccpFineOffset : in signed(kWidthLaccpFineOffset-1 downto 0);
 
     -- Control regisers --
     regThrough      : in std_logic;
@@ -433,6 +438,10 @@ begin
         syncReset       => sync_reset,
         userRegIn       => userReg,
         channelNum      => std_logic_vector(to_unsigned(i+GetChOffset(genChOffset), kWidthChannel)),
+
+        -- LACCP --
+        enOfsCorr       => enOfsCorr,
+        LaccpFineOffset => LaccpFineOffset,
 
         -- TDC in --
         validIn         => valid_data_trigger(i),

@@ -18,10 +18,11 @@ package defStrHRTDC is
   constant kTdcMask               : LocalAddressType := x"040"; -- W/R, [31:0], tdc data mask
 
   -- Bypass register --
-  constant kEnBypass              : LocalAddressType := x"050"; -- W/R, [1:0], Enable bypass route in ODPBlock
+  constant kEnBypass              : LocalAddressType := x"050"; -- W/R, [2:0], Enable bypass route in ODPBlock
   constant kWidthBypass           : integer:= 8;
   constant kIndexDelay            : integer:= 0;
   constant kIndexParing           : integer:= 1;
+  constant kIndexOfsCorr          : integer:= 2;
 
   constant kTotFilterControl      : LocalAddressType := x"060"; -- W/R, [1:0], TOT Filter control reg
   constant kWidthTotFilterCreg    : integer:= 8;
