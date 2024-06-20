@@ -9,6 +9,7 @@ library mylib;
 use mylib.defDataBusAbst.all;
 use mylib.defDelimiter.all;
 use mylib.defTDC.all;
+use mylib.defLaccp.all;
 
 entity ODPBlock is
   generic(
@@ -22,12 +23,14 @@ entity ODPBlock is
     baseClk         : in  std_logic;
     hitOut          : out std_logic_vector(kNumInput-1 downto 0);
     userReg         : in  std_logic_vector(kPosHbdUserReg'length-1 downto 0);
+    LaccpFineOffset : in signed(kWidthLaccpFineOffset-1 downto 0);
 
     -- Control registers --
     tdcMask         : in  std_logic_vector(kNumInput-1 downto 0);
 
     enBypassDelay   : in  std_logic;
     enBypassParing  : in  std_logic;
+    enBypassOfsCorr : in  std_logic;
 
     enTotFilter     : in  std_logic;
     enTotZeroThrough  : in std_logic;
@@ -71,18 +74,37 @@ architecture RTL of ODPBlock is
   signal valid_trailing         : std_logic_vector(kNumInput -1 downto 0);
   signal finecount_trailing     : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
 
+  -- Ofs correction --
+  constant kBitHbLsb        : integer:= 13;
+  signal reduced_ofs        : signed(kWidthFineCount downto 0);
+
+  signal valid_cleading         : std_logic_vector(kNumInput -1 downto 0);
+  signal finecount_cleading     : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
+  signal valid_ctrailing        : std_logic_vector(kNumInput -1 downto 0);
+  signal finecount_ctrailing    : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
+
+  function RoundingOff(ofs_in : in signed) return signed is
+    variable pulse_1    : signed(ofs_in'length-1 downto 0):= (1 => '1', others => '0');
+    variable round_ofs  : signed(ofs_in'length-1 downto 0);
+  begin
+    if(ofs_in(ofs_in'low) = '1') then
+      round_ofs := ofs_in + pulse_1;
+      return round_ofs(round_ofs'high downto 1);
+    else
+      return ofs_in(ofs_in'high downto ofs_in'low+1);
+    end if;
+  end function;
+
   -- Data path merging --
   signal valid_data             : std_logic_vector(kNumInput -1 downto 0);
   signal valid_data_mask        : std_logic_vector(kNumInput -1 downto 0);
   signal finecount_data         : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
   signal finetot_data           : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
   signal is_leading             : std_logic_vector(kNumInput -1 downto 0);
-  signal is_confilicted         : std_logic_vector(kNumInput -1 downto 0);
 
   -- TDC delay buffer --
   signal valid_data_delay       : std_logic_vector(kNumInput -1 downto 0);
   signal is_leading_delay       : std_logic_vector(kNumInput -1 downto 0);
-  signal is_confilicted_delay   : std_logic_vector(kNumInput -1 downto 0);
   signal finecount_data_delay   : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
   signal finetot_data_delay     : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
 
@@ -119,6 +141,7 @@ begin
   -- Fine Count -----------------------------------------------------
   sig_in_n  <= not sigIn;
 
+  reduced_ofs   <= RoundingOff(LaccpFineOffset(kBitHbLsb downto kBitHbLsb-kWidthFineCount-1));
   gen_tdc : for i in 0 to kNumInput-1 generate
 
     -- leading --
@@ -161,23 +184,67 @@ begin
         dOut    => finecount_trailing(i)
       );
 
+    -- Ofs correction --
+    u_ofsc_l : entity mylib.OfsCorrect
+      generic map(
+        kWidthOfs   => kWidthFineCount+1,
+        enDEBUG     => false
+      )
+      port map(
+        clk             => baseClk,
+        syncReset       => rst,
+
+        -- LACCP --
+        enOfsCorr       => enBypassOfsCorr,
+        reducedOfs      => reduced_ofs,
+
+        -- TDC in --
+        validIn         => valid_leading(i),
+        dInTiming       => finecount_leading(i),
+
+        -- Data out --
+        validOut        => valid_cleading(i),
+        dOut            => finecount_cleading(i)
+      );
+
+    u_ofsc_t : entity mylib.OfsCorrect
+      generic map(
+        kWidthOfs   => kWidthFineCount+1,
+        enDEBUG     => false
+      )
+      port map(
+        clk             => baseClk,
+        syncReset       => rst,
+
+        -- LACCP --
+        enOfsCorr       => enBypassOfsCorr,
+        reducedOfs      => reduced_ofs,
+
+        -- TDC in --
+        validIn         => valid_trailing(i),
+        dInTiming       => finecount_trailing(i),
+
+        -- Data out --
+        validOut        => valid_ctrailing(i),
+        dOut            => finecount_ctrailing(i)
+      );
+
     -- LTMerger --
     u_lt_merger : entity mylib.LTMerger
       port map(
         clk           => baseClk,
 
         -- Leading in --
-        validLeading  => valid_leading(i),
-        dInLeading    => finecount_leading(i),
+        validLeading  => valid_cleading(i),
+        dInLeading    => finecount_cleading(i),
 
         -- Trailing in --
-        validTrailing => valid_trailing(i),
-        dInTrailing   => finecount_trailing(i),
+        validTrailing => valid_ctrailing(i),
+        dInTrailing   => finecount_ctrailing(i),
 
         -- Data out --
         validOut      => valid_data(i),
         isLeading     => is_leading(i),
-        isConflicted  => is_confilicted(i),
         dOutTOT       => finetot_data(i),
         dOutTiming    => finecount_data(i)
       );
@@ -202,17 +269,20 @@ begin
       -- Data In --
       validIn         => valid_data_mask,
       isLeadingIn     => is_leading,
-      --isConflictedIn  => is_confilicted,
       dInTOT          => finetot_data,
       dIn             => finecount_data,
 
       -- Data Out --
       vaildOut        => valid_data_delay,
       isLeadingOut    => is_leading_delay,
-      --isConflictedOut => is_confilicted_delay,
       dOutTOT         => finetot_data_delay,
       dOut            => finecount_data_delay
       );
+
+  -- Offset correction ---------------------------------------------------------
+
+
+
 
   -- Heartbeat frame definition ------------------------------------------------
   gen_tdcdata : for i in 0 to kNumInput-1 generate
@@ -224,7 +294,6 @@ begin
     u_delimiterInserter : entity mylib.DelimiterInserter
       generic map
         (
-          kChannelNum  => std_logic_vector(to_unsigned(i, kWidthChannel)),
           enDEBUG      => false
         )
         port map
@@ -233,13 +302,13 @@ begin
           clk             => baseClk,
           syncReset       => sync_reset,
           userRegIn       => userReg,
+          ChannelNum     => std_logic_vector(to_unsigned(i, kWidthChannel)),
 
           -- TDC in --
           validIn         => valid_data_trigger(i),
 
           dInTiming       => dtiming_hb(i),
           isLeading       => is_leading_delay(i),
-          isConflicted    => is_confilicted_delay(i),
           dInToT          => dtot_hb(i),
 
           -- Delimiter word input --

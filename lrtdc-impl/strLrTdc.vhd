@@ -301,11 +301,13 @@ begin
       baseClk         => clk,
       hitOut          => hitOut,
       userReg         => reg_user_for_delimiter,
+      LaccpFineOffset => LaccpFineOffset,
 
       -- Control registers --
       tdcMask         => reg_tdc_mask(kNumInput-1 downto 0),
       enBypassDelay   => reg_enbypass(kIndexDelay),
       enBypassParing  => reg_enbypass(kIndexParing),
+      enBypassOfsCorr => reg_enbypass(kIndexOfsCorr),
 
       enTotFilter     => reg_tot_filter_control(kIndexTotFilter),
       enTotZeroThrough => reg_tot_filter_control(kIndexTotZeroThrough),

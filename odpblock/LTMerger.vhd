@@ -28,7 +28,7 @@ entity LTMerger is
     -- Data out --
     validOut      : out std_logic; -- Indicates data valid for dOutTiming
     isLeading     : out std_logic; -- If high, output is leading data. Valid only when validOut is high.
-    isConflicted  : out std_logic; -- If high, the trailing data, which arrives at the same time, is discarded. Valid only when validOut is high.
+    --isConflicted  : out std_logic; -- If high, the trailing data, which arrives at the same time, is discarded. Valid only when validOut is high.
     dOutTOT       : out std_logic_vector(kWidthFineCount-1 downto 0); -- Data output TOT
     dOutTiming    : out std_logic_vector(kWidthFineCount-1 downto 0)  -- Data output
   );
@@ -42,13 +42,13 @@ architecture RTL of LTMerger is
   signal merged_data    : std_logic_vector(dInLeading'range);
   signal merged_tot     : std_logic_vector(dInLeading'range);
   signal is_leading     : std_logic;
-  signal is_confilicted : std_logic;
+  --signal is_confilicted : std_logic;
 
   signal reg_valid_out  : std_logic;
   signal reg_merged_data  : std_logic_vector(dInLeading'range);
   signal reg_merged_tot : std_logic_vector(dInLeading'range);
   signal reg_is_leading : std_logic;
-  signal reg_is_confilicted : std_logic;
+  --signal reg_is_confilicted : std_logic;
 
 begin
   -- =========================== body ===============================
@@ -72,7 +72,7 @@ begin
                    '0' when(valid_in = "10") else
                    '1' when(valid_in = "11") else '0';
 
-  is_confilicted  <= '1' when(valid_in = "11") else '0';
+  --is_confilicted  <= '1' when(valid_in = "11") else '0';
 
   -- Output register --
   u_buffer : process(clk)
@@ -82,13 +82,13 @@ begin
       reg_merged_data     <= merged_data;
       reg_merged_tot      <= merged_tot;
       reg_is_leading      <= is_leading;
-      reg_is_confilicted  <= is_confilicted;
+      --reg_is_confilicted  <= is_confilicted;
     end if;
   end process;
 
   validOut      <= reg_valid_out;
   isLeading     <= reg_is_leading;
-  isConflicted  <= reg_is_confilicted;
+  --isConflicted  <= reg_is_confilicted;
   dOutTOT       <= reg_merged_tot;
   dOutTiming    <= reg_merged_data;
 

@@ -17,6 +17,7 @@ package defStrLRTDC is
   constant kWidthBypass           : integer:= 8;
   constant kIndexDelay            : integer:= 0;
   constant kIndexParing           : integer:= 1;
+  constant kIndexOfsCorr          : integer:= 2;
 
   constant kTotFilterControl      : LocalAddressType := x"050"; -- W/R, [1:0], TOT Filter control reg
   constant kWidthTotFilterCreg    : integer:= 8;

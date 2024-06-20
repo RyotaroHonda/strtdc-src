@@ -21,7 +21,6 @@ entity DelimiterInserter is
     validIn         : in  std_logic;
     dInTiming       : in  std_logic_vector(kPosTiming'length-1 downto 0);
     isLeading       : in  std_logic;
-    isConflicted    : in  std_logic;
     dInToT          : in  std_logic_vector(kPosTot'length-1 downto 0);
 
     -- delimiter in --
@@ -54,8 +53,14 @@ architecture RTL of DelimiterInserter is
   signal delayed_daq_on       : std_logic;
   signal sr_daq_on            : std_logic_vector(kBuffLength-1 downto 0);
 
-  signal buff_tdc_valid       : std_logic_vector(kBuffLength-1 downto 0)  := (others=>'0');
-  signal buff_tdc_data        : DataArrayType(kBuffLength-1 downto 0);
+  constant kWidthPtr          : integer:= 3;
+  signal write_ptr            : unsigned(kWidthPtr-1 downto 0);
+  signal read_ptr             : unsigned(kWidthPtr-1 downto 0);
+  signal ram_in               : std_logic_vector(kWidthData downto 0);
+  signal ram_out              : std_logic_vector(kWidthData downto 0);
+
+  signal valid_tdc_buf        : std_logic;
+  signal dout_tdc_buf         : std_logic_vector(kWidthData-1 downto 0);
 
   signal merge_valid          : std_logic;
   signal merge_data           : std_logic_vector(kWidthData-1 downto 0);
@@ -121,68 +126,46 @@ begin
     end if;
   end process;
 
-  buff_tdc_2 : process(clk)
+  ram_in  <= tdc_valid & tdc_data;
+  u_TdcBuf : entity mylib.MyDPRamARRT
+    generic map(
+      kWidthAddr  => kWidthPtr,
+      kWidthData  => kWidthData+1
+      )
+    port map(
+      clk   => clk,
+      we    => '1',
+      addra => std_logic_vector(write_ptr),
+      addrb => std_logic_vector(read_ptr),
+      di    => ram_in,
+      doa   => open,
+      dob   => ram_out
+      );
+
+
+  dout_tdc_buf  <= ram_out(kWidthData-1 downto 0);
+  valid_tdc_buf <= ram_out(kWidthData);
+
+  u_pointer : process(clk)
   begin
-    if(clk'event and clk = '1') then
-      -- without conflict (clean buffer)
-      if(buff_delimiter_valid(0)='0')then
-        if(buff_tdc_valid(2)='1')then
-          buff_tdc_valid(2) <= tdc_valid;
-          buff_tdc_data(2)  <= tdc_data;
-        end if;
-      -- conflicted with delimiter (buff is emtyp)
-      else
-        if(buff_tdc_valid(2)='0' and buff_tdc_valid(1)='1')then
-          buff_tdc_valid(2) <= tdc_valid;
-          buff_tdc_data(2)  <= tdc_data;
+    if(syncReset = '1') then
+      write_ptr <= (others => '0');
+      read_ptr  <= (others => '0');
+    elsif(clk'event and clk = '1') then
+      if(tdc_valid = '1') then
+        write_ptr     <= write_ptr + 1;
+      end if;
+
+      if(buff_delimiter_valid(0) = '0') then
+        if(write_ptr /= read_ptr) then
+          read_ptr      <= read_ptr +1;
         end if;
       end if;
     end if;
   end process;
 
-  buff_tdc_1 : process(clk)
-  begin
-    if(clk'event and clk = '1') then
-      -- without conflict (clean buffer)
-      if(buff_delimiter_valid(0)='0')then
-        if(buff_tdc_valid(2)='1')then
-          buff_tdc_valid(1) <= buff_tdc_valid(2);
-          buff_tdc_data(1)  <= buff_tdc_data(2);
-        elsif(buff_tdc_valid(1)='1')then
-          buff_tdc_valid(1) <= tdc_valid;
-          buff_tdc_data(1)  <= tdc_data;
-        end if;
-      -- conflicted with delimiter (buff is emtyp)
-      else
-        if(buff_tdc_valid(1)='0' and buff_tdc_valid(0)='1')then
-          buff_tdc_valid(1) <= tdc_valid;
-          buff_tdc_data(1)  <= tdc_data;
-        end if;
-      end if;
-    end if;
-  end process;
 
-  buff_tdc_0 : process(clk)
-  begin
-    if(clk'event and clk = '1') then
-      -- without conflict (clean buffer)
-      if(buff_delimiter_valid(0)='0')then
-        if(buff_tdc_valid(1)='1')then
-          buff_tdc_valid(0) <= buff_tdc_valid(1);
-          buff_tdc_data(0)  <= buff_tdc_data(1);
-        else
-          buff_tdc_valid(0) <= tdc_valid;
-          buff_tdc_data(0)  <= tdc_data;
-        end if;
-      -- conflicted with delimiter (buff is emtyp)
-      else
-        if(buff_tdc_valid(0)='0')then
-          buff_tdc_valid(0) <= tdc_valid;
-          buff_tdc_data(0)  <= tdc_data;
-        end if;
-      end if;
-    end if;
-  end process;
+
 
   -- data output
   merger : process(clk)
@@ -210,11 +193,14 @@ begin
 
       -- tdc data
       else
-        data_valid_out  <= buff_tdc_valid(0);
-        data_out        <= buff_tdc_data(0);
-        -- count the leading tdc data
-        if(buff_tdc_data(0)(kPosHbdDataType'range)=kDatatypeTDCData and buff_tdc_valid(0) = '1')then
-          num_word      <= num_word + 1;
+        data_valid_out  <= valid_tdc_buf;
+
+        if(valid_tdc_buf = '1') then
+          data_out        <= dout_tdc_buf;
+          -- count the leading tdc data
+          if(dout_tdc_buf(kPosHbdDataType'range) = kDatatypeTDCData or dout_tdc_buf(kPosHbdDataType'range) = kDatatypeTDCDataT) then
+            num_word      <= num_word + 1;
+          end if;
         end if;
 
       end if;
