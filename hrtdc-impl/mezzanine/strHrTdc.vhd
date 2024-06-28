@@ -335,7 +335,6 @@ begin
       userReg       => reg_user_for_delimiter,
 
       -- LACCP --
-      enOfsCorr         => reg_enbypass(kIndexOfsCorr),
       LaccpFineOffset   => LaccpFineOffset,
 
       -- Control registers --
@@ -348,6 +347,7 @@ begin
 
       enBypassDelay   => reg_enbypass(kIndexDelay),
       enBypassParing  => reg_enbypass(kIndexParing),
+      enBypassOfsCorr => reg_enbypass(kIndexOfsCorr),
 
       enTotFilter     => reg_tot_filter_control(kIndexTotFilter),
       enTotZeroThrough => reg_tot_filter_control(kIndexTotZeroThrough),

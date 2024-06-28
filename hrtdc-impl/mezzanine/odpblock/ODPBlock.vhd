@@ -31,7 +31,6 @@ entity ODPBlock is
     userReg         : in  std_logic_vector(kPosHbdUserReg'length-1 downto 0);
 
     -- LACCP --
-    enOfsCorr       : in std_logic;
     LaccpFineOffset : in signed(kWidthLaccpFineOffset-1 downto 0);
 
     -- Control regisers --
@@ -44,6 +43,7 @@ entity ODPBlock is
 
     enBypassDelay   : in  std_logic;
     enBypassParing  : in  std_logic;
+    enBypassOfsCorr : in  std_logic;
 
     enTotFilter     : in  std_logic;
     enTotZeroThrough  : in std_logic;
@@ -144,18 +144,25 @@ architecture RTL of ODPBlock is
   signal finecount_leading      : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
   signal finecount_trailing     : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
 
+  -- Ofs correction --
+  constant kBitHbLsb        : integer:= 13;
+  signal reduced_ofs        : signed(kWidthFineCount downto 0);
+
+  signal valid_cleading         : std_logic_vector(kNumInput -1 downto 0);
+  signal finecount_cleading     : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
+  signal valid_ctrailing        : std_logic_vector(kNumInput -1 downto 0);
+  signal finecount_ctrailing    : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
+
   -- Data path merging --
   signal valid_data             : std_logic_vector(kNumInput -1 downto 0);
   signal valid_data_mask        : std_logic_vector(kNumInput -1 downto 0);
   signal finecount_data         : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
   signal finetot_data           : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
   signal is_leading             : std_logic_vector(kNumInput -1 downto 0);
-  signal is_confilicted         : std_logic_vector(kNumInput -1 downto 0);
 
   -- TDC delay buffer --
   signal valid_data_delay       : std_logic_vector(kNumInput -1 downto 0);
   signal is_leading_delay       : std_logic_vector(kNumInput -1 downto 0);
-  signal is_confilicted_delay   : std_logic_vector(kNumInput -1 downto 0);
   signal finecount_data_delay   : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
   signal finetot_data_delay     : FineCountArrayType(kNumInput-1 downto 0)(kWidthFineCount-1 downto 0);
 
@@ -219,6 +226,7 @@ begin
   -- Timing Unit --
   sig_in_n  <= not sigIn;
 
+  reduced_ofs   <= LaccpFineOffset(kBitHbLsb downto kBitHbLsb-kWidthFineCount);
   gen_tdc : for i in 0 to kNumInput-1 generate
     attribute keep_hierarchy of u_reset_gen_tdc : label is "true";
 
@@ -363,23 +371,67 @@ begin
     finecount_trailing(i) <= std_logic_vector(unsigned(fzero) - unsigned(pos_fc_trailing(i)));
     -- Define FineCount of HR-TDC --
 
+    -- Ofs correction --
+    u_ofsc_l : entity mylib.OfsCorrect
+      generic map(
+        kWidthOfs   => kWidthFineCount+1,
+        enDEBUG     => false
+      )
+      port map(
+        clk             => baseClk,
+        syncReset       => rst,
+
+        -- LACCP --
+        enOfsCorr       => enBypassOfsCorr,
+        reducedOfs      => reduced_ofs,
+
+        -- TDC in --
+        validIn         => valid_leading(i),
+        dInTiming       => finecount_leading(i),
+
+        -- Data out --
+        validOut        => valid_cleading(i),
+        dOut            => finecount_cleading(i)
+      );
+
+    u_ofsc_t : entity mylib.OfsCorrect
+      generic map(
+        kWidthOfs   => kWidthFineCount+1,
+        enDEBUG     => false
+      )
+      port map(
+        clk             => baseClk,
+        syncReset       => rst,
+
+        -- LACCP --
+        enOfsCorr       => enBypassOfsCorr,
+        reducedOfs      => reduced_ofs,
+
+        -- TDC in --
+        validIn         => valid_trailing(i),
+        dInTiming       => finecount_trailing(i),
+
+        -- Data out --
+        validOut        => valid_ctrailing(i),
+        dOut            => finecount_ctrailing(i)
+      );
+
     -- LTMerger --
     u_lt_merger : entity mylib.LTMerger
       port map(
         clk           => baseClk,
 
         -- Leading in --
-        validLeading  => valid_leading(i),
-        dInLeading    => finecount_leading(i),
+        validLeading  => valid_cleading(i),
+        dInLeading    => finecount_cleading(i),
 
         -- Trailing in --
-        validTrailing => valid_trailing(i),
-        dInTrailing   => finecount_trailing(i),
+        validTrailing => valid_ctrailing(i),
+        dInTrailing   => finecount_ctrailing(i),
 
         -- Data out --
         validOut      => valid_data(i),
         isLeading     => is_leading(i),
-        isConflicted  => is_confilicted(i),
         dOutTOT       => finetot_data(i),
         dOutTiming    => finecount_data(i)
       );
@@ -407,14 +459,12 @@ begin
       -- Data In --
       validIn         => valid_data_mask,
       isLeadingIn     => is_leading,
-      --isConflictedIn  => is_confilicted,
       dInTOT          => finetot_data,
       dIn             => finecount_data,
 
       -- Data Out --
       vaildOut        => valid_data_delay,
       isLeadingOut    => is_leading_delay,
-      --isConflictedOut => is_confilicted_delay,
       dOutTOT         => finetot_data_delay,
       dOut            => finecount_data_delay
       );
@@ -439,15 +489,10 @@ begin
         userRegIn       => userReg,
         channelNum      => std_logic_vector(to_unsigned(i+GetChOffset(genChOffset), kWidthChannel)),
 
-        -- LACCP --
-        enOfsCorr       => enOfsCorr,
-        LaccpFineOffset => LaccpFineOffset,
-
         -- TDC in --
         validIn         => valid_data_trigger(i),
         dInTiming       => dtiming_hb(i),
         isLeading       => is_leading_delay(i),
-        isConflicted    => is_confilicted_delay(i),
         dInToT          => dtot_hb(i),
 
         -- Delimiter word input --
