@@ -48,6 +48,8 @@ entity StrLrTdc is
 
     LaccpFineOffset   : in signed(kWidthLaccpFineOffset-1 downto 0);
 
+    frameFlagsIn      : in std_logic_vector(kWidthFrameFlag-1 downto 0);
+
     -- Streaming TDC interface ------------------------------------
     sigIn             : in std_logic_vector(kNumInput-1 downto 0);
     triggerIn         : in std_logic;
@@ -266,6 +268,9 @@ begin
   delimiter_flags(kIndexInThrottlingT2)   <= input_throttling_type2_on;
   delimiter_flags(kIndexOutThrottling)    <= '0';
   delimiter_flags(kIndexHbfThrottling)    <= hbf_throttling_on;
+
+  delimiter_flags(kIndexFrameFlag1)       <= frameFlagsIn(1);
+  delimiter_flags(kIndexFrameFlag2)       <= frameFlagsIn(0);
 
   u_DelimiterGen: entity mylib.DelimiterGenerator
     generic map(

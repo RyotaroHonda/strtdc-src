@@ -35,8 +35,8 @@ package defDelimiter is
   constant kIndexHbfThrottling    : integer  := 4;  -- 5th,  Hbf throttlinng is working
   --constnat kReserve             : integer  := 3;  -- 4th,
   --constnat kReserve             : integer  := 2;  -- 3th,
-  --constnat kReserve             : integer  := 1;  -- 2nd,
-  --constnat kReserve             : integer  := 0;  -- 1st,
+  constant kIndexFrameFlag2       : integer  := 1;  -- 2nd,
+  constant kIndexFrameFlag1       : integer  := 0;  -- 1st,
 
   function genFlagVector(index : integer; flag : std_logic) return std_logic_vector;
 
