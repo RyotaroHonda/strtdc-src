@@ -41,23 +41,23 @@ architecture Behavioral of IncomingBuffer is
   signal wren_fifo         : std_logic_vector(kNumStrInput-1 downto 0);
   signal din_fifo          : DataArrayType(kNumStrInput-1 downto 0);
   signal full_fifo         : std_logic_vector(kNumStrInput-1 downto 0);
-  signal almost_full_fifo  : std_logic_vector(kNumStrInput-1 downto 0);
+  --signal almost_full_fifo  : std_logic_vector(kNumStrInput-1 downto 0);
   signal wr_ack_fifo       : std_logic_vector(kNumStrInput-1 downto 0);
 
   constant kNumBitDepthIncomingFifo : integer  := 9;
   type dDateCountIncomingFifoType is array ( integer range kNumStrInput-1 downto 0) of std_logic_vector(kNumBitDepthIncomingFifo-1 downto 0); -- for count the data count of incoming FIFO
-  signal data_count_fifo   : dDateCountIncomingFifoType;
+  --signal data_count_fifo   : dDateCountIncomingFifoType;
   signal prog_full_fifo    : std_logic_vector(kNumStrInput-1 downto 0);
 
   component incomingFifo is
     PORT(
       clk         : in  STD_LOGIC;
-      srst        : in  STD_LOGIC;
+      rst        : in  STD_LOGIC;
 
       wr_en       : in  STD_LOGIC;
       din         : in  STD_LOGIC_VECTOR (kWidthData-1 DOWNTO 0);
       full        : out STD_LOGIC;
-      almost_full : out STD_LOGIC;
+      --almost_full : out STD_LOGIC;
 
       rd_en       : in  STD_LOGIC;
       dout        : out STD_LOGIC_VECTOR (kWidthData-1 DOWNTO 0);
@@ -65,7 +65,7 @@ architecture Behavioral of IncomingBuffer is
       almost_empty: out STD_LOGIC;
       valid       : out STD_LOGIC;
 
-      data_count  : out STD_LOGIC_VECTOR (kNumBitDepthIncomingFifo-1 DOWNTO 0);
+      --data_count  : out STD_LOGIC_VECTOR (kNumBitDepthIncomingFifo-1 DOWNTO 0);
       prog_full   : out STD_LOGIC
     );
     end component;
@@ -79,7 +79,7 @@ architecture Behavioral of IncomingBuffer is
   --attribute mark_debug of data_count_fifo      : signal is enDEBUG;
   attribute mark_debug of prog_full_fifo       : signal is enDEBUG;
   attribute mark_debug of full_fifo      : signal is enDEBUG;
-  attribute mark_debug of almost_full_fifo      : signal is enDEBUG;
+  --attribute mark_debug of almost_full_fifo      : signal is enDEBUG;
 
 begin
 
@@ -90,6 +90,8 @@ begin
   begin
 
     -- outputfifo
+
+    din_fifo(i)  <= odpDataIn(i);
     outputfifo_process : process(clk)
     begin
       if(clk'event and clk = '1') then
@@ -97,7 +99,7 @@ begin
           wren_fifo(i) <= '0';
         else
           if(odpWrenIn(i) = '1') then -- There are data from the ODP block
-            din_fifo(i)  <= odpDataIn(i);
+            --din_fifo(i)  <= odpDataIn(i);
             if(checkTdc(odpDataIn(i)(kPosHbdDataType'range)) = false)then -- delimiter word
               is_delimiter(i) <= '1';
               wren_fifo(i)    <= '1';
@@ -117,12 +119,12 @@ begin
     -- incoming FIFO
     u_incomingFifo: incomingFifo port map(
       clk         => clk,
-      srst        => syncReset,
+      rst        => syncReset,
 
       wr_en       => wren_fifo(i),
       din         => din_fifo(i),
       full        => full_fifo(i),
-      almost_full => almost_full_fifo(i),
+      --almost_full => almost_full_fifo(i),
 
       rd_en       => bufRdenIn(i),
       dout        => bufDataOut(i),
@@ -130,7 +132,7 @@ begin
       almost_empty=> bufAlmostEmptyOut (i),
       valid       => bufValidOut(i),
 
-      data_count  => data_count_fifo(i),
+      --data_count  => data_count_fifo(i),
       prog_full   => prog_full_fifo(i)
     );
 

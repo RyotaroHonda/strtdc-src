@@ -305,7 +305,7 @@ begin
       tdcClk          => tdcClk,
       baseClk         => clk,
       hitOut          => hitOut,
-      userReg         => reg_user_for_delimiter,
+      --userReg         => reg_user_for_delimiter,
       LaccpFineOffset => LaccpFineOffset,
 
       -- Control registers --
@@ -381,6 +381,7 @@ begin
     port map(
       syncReset           => sync_reset or pre_vital_reset or (not daq_is_running),
       clk                 => clk,
+      userReg             => reg_user_for_delimiter,
 
       -- Data In --
       validIn             => vital_valid,

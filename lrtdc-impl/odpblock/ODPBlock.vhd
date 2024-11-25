@@ -22,7 +22,7 @@ entity ODPBlock is
     tdcClk          : in  std_logic_vector(kNumTdcClock-1 downto 0);
     baseClk         : in  std_logic;
     hitOut          : out std_logic_vector(kNumInput-1 downto 0);
-    userReg         : in  std_logic_vector(kPosHbdUserReg'length-1 downto 0);
+    --userReg         : in  std_logic_vector(kPosHbdUserReg'length-1 downto 0);
     LaccpFineOffset : in signed(kWidthLaccpFineOffset-1 downto 0);
 
     -- Control registers --
@@ -301,7 +301,7 @@ begin
           -- system --
           clk             => baseClk,
           syncReset       => sync_reset,
-          userRegIn       => userReg,
+          --userRegIn       => userReg,
           ChannelNum     => std_logic_vector(to_unsigned(i, kWidthChannel)),
 
           -- TDC in --

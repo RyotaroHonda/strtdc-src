@@ -10,7 +10,7 @@ entity DelimiterReplacer is
   port(
     syncReset           : in std_logic;   -- synchronous reset
     clk                 : in std_logic;
---    userReg             : in std_logic_vector(kPosHbdUserReg'length-1 downto 0);
+    userReg             : in std_logic_vector(kPosHbdUserReg'length-1 downto 0);
 
     -- Data In --
     validIn             : in std_logic;
@@ -67,7 +67,8 @@ begin
           else
             dOut(kPosHbdDataType'range)  <= kDatatypeHeartbeatT2;
             dOut(kPosHbdReserve1'range)  <= dIn(kPosHbdReserve1'range);
-            dOut(kPosHbdUserReg'range)   <= dIn(kPosHbdUserReg'range);
+            --dOut(kPosHbdUserReg'range)   <= dIn(kPosHbdUserReg'range);
+            dOut(kPosHbdUserReg'range)   <= userReg;
             dOut(kPosHbdGenSize'range)   <= dIn(kPosHbdGenSize'range);
             dOut(kPosHbdTransSize'range) <= std_logic_vector(reg_num_word) & "000";
 

@@ -14,7 +14,7 @@ entity DelimiterInserter is
   port(
     clk         : in std_logic;   -- base clock
     syncReset   : in std_logic;   -- Synchronous reset
-    userRegIn   : in std_logic_vector(kPosHbdUserReg'length-1 downto 0);
+    --userRegIn   : in std_logic_vector(kPosHbdUserReg'length-1 downto 0);
     channelNum  : in std_logic_vector(kPosChannel'length-1 downto 0);
 
     -- TDC in --
@@ -183,7 +183,7 @@ begin
         -- insert the gen tdc size into the 2nd delimiter word.
         if(is_2nd_delimiter='1')then
           data_out(kPosHbdGenSize'range) <= std_logic_vector(num_word) & "000";
-          data_out(kPosHbdUserReg'range) <= userRegIn;
+          --data_out(kPosHbdUserReg'range) <= userRegIn;
           is_2nd_delimiter  <= '0';
           num_word          <= (others=>'0');
         else
