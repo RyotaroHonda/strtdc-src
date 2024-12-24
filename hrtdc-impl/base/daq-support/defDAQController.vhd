@@ -37,5 +37,6 @@ package defDCT is
   constant kInitDdr       : LocalAddressType := x"020"; -- W,         Assert DDR receiver initialize
   constant kCtrlReg       : LocalAddressType := x"030"; -- W,R  [0:0] DDR control register
   constant kRcvStatus     : LocalAddressType := x"040"; -- R,   [1:0] DDR reciever status
+  constant kUserReg       : LocalAddressType := x"050"; -- W,   [15:0] Heartbeat delimiter userReg
 
 end package defDCT;
