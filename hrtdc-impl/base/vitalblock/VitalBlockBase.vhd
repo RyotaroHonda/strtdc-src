@@ -17,7 +17,8 @@ entity VitalBlockBase is
     clk                 : in STD_LOGIC;  -- Base clock
 
     -- status input --
-    linkActive          : std_logic;
+    linkActive          : in std_logic;
+    userRegIn           : in std_logic_vector(kPosHbdUserReg'length-1 downto 0);
     --intputThrottlingOn  : in std_logic; -- Signal indicating InputThrottlingType2 is active
     --pfullLinkIn         : in std_logic; -- Programmable full flag from LinkBuffer
     --emptyLinkIn         : in std_logic; -- Empty flag from LinkBuffer
@@ -113,6 +114,7 @@ begin
     port map(
       syncReset           => sync_reset,
       clk                 => clk,
+      userReg             => userRegIn,
 
       -- Data In --
       validIn             => valid_mgr,

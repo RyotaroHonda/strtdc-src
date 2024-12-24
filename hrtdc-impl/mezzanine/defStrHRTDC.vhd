@@ -37,7 +37,7 @@ package defStrHRTDC is
 
   constant kHbfThrottControl      : LocalAddressType := x"0C0"; -- W/R, [3:0], Hbf throttling control
 
-  constant kHbdUserReg            : LocalAddressType := x"0D0"; -- W,   [15:0], Hb 2nd delimiter user data
+  --constant kHbdUserReg            : LocalAddressType := x"0D0"; -- W,   [15:0], Hb 2nd delimiter user data
 
   constant kSelfRecoveryMode      : LocalAddressType := x"0E0"; -- W/R, [0:0], Activate self recovery mode
 

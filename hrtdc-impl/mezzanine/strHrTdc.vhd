@@ -55,6 +55,8 @@ entity StrHrTdc is
 
     LaccpFineOffset   : in signed(kWidthLaccpFineOffset-1 downto 0);
 
+    frameFlagsIn      : in std_logic_vector(kWidthFrameFlag-1 downto 0);
+
     -- Streaming TDC interface ------------------------------------
     sigIn             : in std_logic_vector(kNumInput-1 downto 0);
     calibIn           : in std_logic;
@@ -133,7 +135,7 @@ architecture RTL of StrHrTdc is
   signal delimiter_flags        : std_logic_vector(kWidthDelimiterFlag-1 downto 0);
   signal delimiter_data_valid   : std_logic;
   signal delimiter_dout         : std_logic_vector(kWidthData-1 downto 0);
-  signal reg_user_for_delimiter : std_logic_vector(kPosHbdUserReg'length-1 downto 0);
+  --signal reg_user_for_delimiter : std_logic_vector(kPosHbdUserReg'length-1 downto 0);
 
   attribute mark_debug of delimiter_data_valid  : signal is enDEBUG;
   attribute mark_debug of delimiter_dout        : signal is enDEBUG;
@@ -295,6 +297,9 @@ begin
   delimiter_flags(kIndexOutThrottling)    <= '0';
   delimiter_flags(kIndexHbfThrottling)    <= hbf_throttling_on;
 
+  delimiter_flags(kIndexFrameFlag1)       <= frameFlagsIn(1);
+  delimiter_flags(kIndexFrameFlag2)       <= frameFlagsIn(0);
+
   -- Delimiter generation --block --
   laccp_fine_offset <= LaccpFineOffset when(reg_enbypass(kIndexOfsCorr) = '1') else (others => '0');
   u_DelimiterGen: entity mylib.DelimiterGenerator
@@ -332,7 +337,7 @@ begin
       tdcClk        => tdcClk,
       baseClk       => clk,
       hitOut        => hitOut,
-      userReg       => reg_user_for_delimiter,
+      --userReg       => reg_user_for_delimiter,
 
       -- LACCP --
       LaccpFineOffset   => LaccpFineOffset,
@@ -435,7 +440,7 @@ begin
 
         reg_hbf_throttling_ratio  <= (others => '0');
 
-        reg_user_for_delimiter    <= (others => '0');
+        --reg_user_for_delimiter    <= (others => '0');
 
         reg_self_recovery_mode    <= '0';
 
@@ -541,16 +546,16 @@ begin
               reg_hbf_throttling_ratio <= dataLocalBusIn(kNumHbfMode-1 downto 0);
               state_lbus      <= Done;
 
-            elsif(addrLocalBus(kNonMultiByte'range) = kHbdUserReg(kNonMultiByte'range)) then
-              case addrLocalBus(kMultiByte'range) is
-                when k1stByte =>
-                  reg_user_for_delimiter(7 downto 0)    <= dataLocalBusIn;
-                when k2ndByte =>
-                  reg_user_for_delimiter(15 downto 8)   <= dataLocalBusIn;
-                when others =>
-                  null;
-              end case;
-              state_lbus      <= Done;
+--            elsif(addrLocalBus(kNonMultiByte'range) = kHbdUserReg(kNonMultiByte'range)) then
+--              case addrLocalBus(kMultiByte'range) is
+--                when k1stByte =>
+--                  reg_user_for_delimiter(7 downto 0)    <= dataLocalBusIn;
+--                when k2ndByte =>
+--                  reg_user_for_delimiter(15 downto 8)   <= dataLocalBusIn;
+--                when others =>
+--                  null;
+--              end case;
+--              state_lbus      <= Done;
 
             elsif(addrLocalBus(kNonMultiByte'range) = kSelfRecoveryMode(kNonMultiByte'range)) then
               reg_self_recovery_mode <= dataLocalBusIn(0);

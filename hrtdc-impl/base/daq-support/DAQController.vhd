@@ -7,6 +7,9 @@ use mylib.defBCT.all;
 use mylib.defDCT.all;
 
 entity DAQController is
+  generic(
+    kWidthUserReg       : integer:= 16
+  );
   port(
     rst                 : in std_logic;
     clk                 : in std_logic;
@@ -17,6 +20,7 @@ entity DAQController is
     -- Module output --
     regRcvOut           : out RegDct2RcvArray;
     forceReset          : out std_logic_vector(kNumDaqBlock-1 downto 0);
+    userReg             : out std_logic_vector(kWidthUserReg-1 downto 0);
 
     -- Local bus --
     addrLocalBus	      : in  LocalAddressType;
@@ -45,6 +49,7 @@ architecture RTL of DAQController is
 
   signal reg_ctrl             : std_logic_vector(7 downto 0);
   signal ddr_status           : std_logic_vector(7 downto 0);
+  signal reg_user_reg         : std_logic_vector(userReg'range);
   signal reg_init_cbt         : std_logic;
 
   signal state_lbus	          : DCTProcessType;
@@ -78,6 +83,7 @@ begin
         forceReset(0)               <= reg_ctrl(kFrstU.Index);
         forceReset(1)               <= reg_ctrl(kFrstD.Index);
 
+        userReg                     <= reg_user_reg;
 
         -- reg in --
         reg_ddr_bit_aligned(0)    <= regRcvIn(0).bitAligned;
@@ -124,12 +130,23 @@ begin
             end if;
 
           when Write =>
-            case addrLocalBus is
-              when kInitDdr =>
+            case addrLocalBus(kNonMultiByte'range) is
+              when kInitDdr(kNonMultiByte'range) =>
                 state_lbus	<= ExecuteInitDDR;
-              when kCtrlReg =>
+              when kCtrlReg(kNonMultiByte'range) =>
                 reg_ctrl	  <= dataLocalBusIn;
                 state_lbus	<= Done;
+              when kUserReg(kNonMultiByte'range) =>
+                case addrLocalBus(kMultiByte'range) is
+                  when k1stByte =>
+                    reg_user_reg(7 downto 0)  <= dataLocalBusIn;
+                  when k2ndByte =>
+                    reg_user_reg(15 downto 8) <= dataLocalBusIn;
+                  when others =>
+                    reg_user_reg(7 downto 0)  <= dataLocalBusIn;
+                end case;
+                state_lbus  <= Done;
+
               when others =>
                 state_lbus	<= Done;
             end case;
