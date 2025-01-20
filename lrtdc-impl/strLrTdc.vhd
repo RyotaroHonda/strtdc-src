@@ -7,7 +7,7 @@ library UNISIM;
 use UNISIM.VComponents.all;
 
 library mylib;
-use mylib.defDCR.all;
+--use mylib.defDCR.all;
 use mylib.defBCT.all;
 use mylib.defLaccp.all;
 use mylib.defHeartBeatUnit.all;

@@ -52,7 +52,7 @@ architecture Behavioral of IncomingBuffer is
   component incomingFifo is
     PORT(
       clk         : in  STD_LOGIC;
-      rst        : in  STD_LOGIC;
+      srst        : in  STD_LOGIC;
 
       wr_en       : in  STD_LOGIC;
       din         : in  STD_LOGIC_VECTOR (kWidthData-1 DOWNTO 0);
@@ -119,7 +119,7 @@ begin
     -- incoming FIFO
     u_incomingFifo: incomingFifo port map(
       clk         => clk,
-      rst        => syncReset,
+      srst        => syncReset,
 
       wr_en       => wren_fifo(i),
       din         => din_fifo(i),
