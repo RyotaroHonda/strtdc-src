@@ -65,10 +65,15 @@ architecture Behavioral of VitalBlockBase is
   signal read_enable_to_merger  : std_logic;
   signal sync_in_throttl_on     : std_logic;
 
-  attribute mark_debug of valid_mgr   : signal is enDEBUG;
-  attribute mark_debug of empty_mgr   : signal is enDEBUG;
-  attribute mark_debug of dout_mgr    : signal is enDEBUG;
+  --attribute mark_debug of valid_mgr   : signal is enDEBUG;
+  --attribute mark_debug of empty_mgr   : signal is enDEBUG;
+  --attribute mark_debug of dout_mgr    : signal is enDEBUG;
   attribute mark_debug of sync_in_throttl_on    : signal is enDEBUG;
+
+  attribute mark_debug of dataIn      : signal is enDEBUG;
+  attribute mark_debug of validIn     : signal is enDEBUG;
+
+  attribute mark_debug of linkActive    : signal is enDEBUG;
 
   -- Output throttling --
 
@@ -111,8 +116,11 @@ begin
 
   -- Replace 2nd delimiter with new delimiter --
   u_replacer : entity mylib.DelimiterReplacer
+    generic map(
+      enDEBUG             => false
+    )
     port map(
-      syncReset           => sync_reset,
+      syncReset           => sync_reset or (not linkActive),
       clk                 => clk,
       userReg             => userRegIn,
 
