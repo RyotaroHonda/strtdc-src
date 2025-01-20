@@ -73,11 +73,14 @@ architecture RTL of DelimiterInserter is
   signal data_out             : std_logic_vector(kWidthData-1 downto 0);
 
   -- debug ----------------------------------------------------------
---  attribute mark_debug of delimiter_data  : signal is enDEBUG;
-  attribute mark_debug of delimiter_valid : signal is enDEBUG;
+  attribute mark_debug of delimiter_valid   : signal is enDEBUG;
+  attribute mark_debug of buff_delimiter_valid : signal is enDEBUG;
+  attribute mark_debug of is_2nd_delimiter  : signal is enDEBUG;
+  attribute mark_debug of valid_tdc_buf     : signal is enDEBUG;
 
---  attribute mark_debug of data_out        : signal is enDEBUG;
-  attribute mark_debug of data_valid_out  : signal is enDEBUG;
+  attribute mark_debug of num_word          : signal is enDEBUG;
+  attribute mark_debug of data_out          : signal is enDEBUG;
+  attribute mark_debug of data_valid_out    : signal is enDEBUG;
 
 begin
   -- =========================== body ===============================
