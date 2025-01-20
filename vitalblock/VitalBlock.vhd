@@ -17,6 +17,7 @@ entity VitalBlock is
   port (
     rst                 : in STD_LOGIC;  -- User reset (synchronous)
     clk                 : in STD_LOGIC;
+    daqGateIn           : in std_logic;
     lhbfNumMismatch     : out std_logic; -- Local heartbeat frame num mismatch
 
     -- ODPBlock input --
@@ -106,7 +107,7 @@ begin
         enDEBUG   => false
       )
       port map(
-        syncReset           => sync_reset,
+        syncReset           => sync_reset or (not daqGateIn),
         clk                 => clk,
 
         -- status input --
@@ -145,8 +146,8 @@ begin
       clk             => clk,
       syncReset       => sync_reset,
 
-      odpWrenIn       => odpWrenIn,
-      odpDataIn       => odpDataIn,
+      odpWrenIn       => valid_ithrottling,
+      odpDataIn       => dout_ithrottling,
 
       bufferProgFull  => incoming_buf_pfull,
 

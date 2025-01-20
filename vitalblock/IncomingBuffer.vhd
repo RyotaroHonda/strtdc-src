@@ -73,12 +73,12 @@ architecture Behavioral of IncomingBuffer is
   attribute mark_debug : boolean;
   --attribute mark_debug of flag_1st_delimiter   : signal is enDEBUG;
   --attribute mark_debug of flag_data_lost       : signal is enDEBUG;
-  attribute mark_debug of wren_fifo            : signal is enDEBUG;
-  attribute mark_debug of is_delimiter         : signal is enDEBUG;
+  --attribute mark_debug of wren_fifo            : signal is enDEBUG;
+  --attribute mark_debug of is_delimiter         : signal is enDEBUG;
   --attribute mark_debug of din_fifo             : signal is enDEBUG;
   --attribute mark_debug of data_count_fifo      : signal is enDEBUG;
   attribute mark_debug of prog_full_fifo       : signal is enDEBUG;
-  attribute mark_debug of full_fifo      : signal is enDEBUG;
+  --attribute mark_debug of full_fifo      : signal is enDEBUG;
   --attribute mark_debug of almost_full_fifo      : signal is enDEBUG;
 
 begin
@@ -91,7 +91,7 @@ begin
 
     -- outputfifo
 
-    din_fifo(i)  <= odpDataIn(i);
+    --din_fifo(i)  <= odpDataIn(i);
     outputfifo_process : process(clk)
     begin
       if(clk'event and clk = '1') then
@@ -99,7 +99,7 @@ begin
           wren_fifo(i) <= '0';
         else
           if(odpWrenIn(i) = '1') then -- There are data from the ODP block
-            --din_fifo(i)  <= odpDataIn(i);
+            din_fifo(i)  <= odpDataIn(i);
             if(checkTdc(odpDataIn(i)(kPosHbdDataType'range)) = false)then -- delimiter word
               is_delimiter(i) <= '1';
               wren_fifo(i)    <= '1';

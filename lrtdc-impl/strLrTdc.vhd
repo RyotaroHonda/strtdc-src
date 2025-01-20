@@ -83,6 +83,7 @@ architecture RTL of StrLrTdc is
   signal request_vital_reset  : std_logic;
   constant kWidthVitalReset   : integer:= 8;
   signal sr_vital_reset       : std_logic_vector(kWidthVitalReset-1 downto 0);
+  signal neg_edge_gate, daq_off_reset : std_logic;
 
   -- Internal signal declaration ---------------------------------
   -- Scaler --
@@ -141,6 +142,7 @@ architecture RTL of StrLrTdc is
   signal state_lbus      : BusProcessType;
 
   -- Debug --
+  attribute mark_debug of heartbeatIn     : signal is enDEBUG;
 
 begin
   -- ======================================================================
@@ -229,6 +231,11 @@ begin
       end if;
     end if;
   end process;
+
+  u_daqgate_edge    : entity mylib.EdgeDetector port map(clk, (not daq_is_running), neg_edge_gate);
+  u_reset_gen_vital : entity mylib.ResetGen
+    generic map(128)
+    port map(neg_edge_gate, clk, daq_off_reset);
 
   -- Trigger emulation mode --
   u_gate : entity mylib.GateGen
@@ -349,7 +356,8 @@ begin
     )
     port map(
       clk                 => clk,
-      rst                 => rst or pre_vital_reset or (not daq_is_running),
+      rst                 => rst or pre_vital_reset or daq_off_reset,
+      daqGateIn           => daq_is_running,
       lhbfNumMismatch     => local_hbf_num_mismatch,
 
       -- ODPBlock input --
