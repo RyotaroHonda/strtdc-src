@@ -7,6 +7,9 @@ use mylib.defDataBusAbst.all;
 use mylib.defDelimiter.all;
 
 entity DelimiterReplacer is
+  generic(
+    enDEBUG             : boolean:= false
+  );
   port(
     syncReset           : in std_logic;   -- synchronous reset
     clk                 : in std_logic;
@@ -30,6 +33,12 @@ architecture RTL of DelimiterReplacer is
   signal num_word, reg_num_word : unsigned(kPosHbdTransSize'length-4 downto 0);
 
   signal is_1st_delimiter       : std_logic;
+
+  -- debug --
+  attribute mark_debug of num_word  : signal is enDEBUG;
+  attribute mark_debug of validIn   : signal is enDEBUG;
+  attribute mark_debug of dIn       : signal is enDEBUG;
+  attribute mark_debug of is_1st_delimiter       : signal is enDEBUG;
 
 begin
   -- =========================== body ===============================
@@ -57,6 +66,7 @@ begin
     if(clk'event and clk = '1') then
       if(syncReset = '1') then
         is_1st_delimiter  <= '1';
+        reg_num_word      <= (others => '0');
       else
         validOut          <= validIn;
         if(validIn = '1' and checkDelimiter(data_type) = true) then

@@ -35,6 +35,7 @@ architecture RTL of DataSplitter is
   signal sync_reset     : std_logic;
 
   -- Splitter -----------------------------------------------------------
+  signal is_2nd_delimiter : std_logic;
 
   -- Data buffer --------------------------------------------------------
   signal wren_fifo      : STD_LOGIC_VECTOR (kDivisionRatio-1 downto 0);
@@ -66,17 +67,27 @@ begin
   u_splitter : process(clk)
   begin
     if(clk'event and clk = '1') then
-      if(mznDIsAbsence = '0') then
-        wren_fifo   <= validIn;
-        din_fifo    <= dataIn;
+      if(sync_reset = '1') then
+        is_2nd_delimiter  <= '0';
       else
-        wren_fifo(0)  <= validIn(0);
-        din_fifo(0)   <= dataIn(0);
-        if(validIn(0) = '1' and checkDelimiter(dataIn(0)(kPosHbdDataType'range)) = true) then
-          wren_fifo(1)  <= '1';
-          din_fifo(1)   <= dataIn(0);
+        if(mznDIsAbsence = '0') then
+          wren_fifo   <= validIn;
+          din_fifo    <= dataIn;
         else
-          wren_fifo(1)  <= '0';
+          wren_fifo(0)  <= validIn(0);
+          din_fifo(0)   <= dataIn(0);
+          if(validIn(0) = '1' and checkDelimiter(dataIn(0)(kPosHbdDataType'range)) = true) then
+            wren_fifo(1)  <= '1';
+            if(is_2nd_delimiter = '1') then
+              din_fifo(1)(kPosHbdGenSize'range) <= (others => '0');
+              is_2nd_delimiter                  <= '0';
+            else
+              din_fifo(1)       <= dataIn(0);
+              is_2nd_delimiter  <= '1';
+            end if;
+          else
+            wren_fifo(1)  <= '0';
+          end if;
         end if;
       end if;
     end if;
