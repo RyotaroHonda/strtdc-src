@@ -8,6 +8,9 @@ use mylib.defTDC.all;
 use mylib.defDelimiter.all;
 
 entity LTParingUnit is
+  generic(
+    enDEBUG         : boolean:= false
+  );
   port(
     syncReset       : in std_logic;   -- base reset
     clk             : in std_logic;   -- base clock
@@ -48,6 +51,11 @@ architecture RTL of LTParingUnit is
   signal state_paring       : PairingProcessType;
 
   signal del_index_debug    : integer range 0 to 1:= 0;
+
+  -- debug --
+  attribute mark_debug      : boolean;
+  attribute mark_debug of valid_out : signal is enDEBUG;
+  attribute mark_debug of data_out  : signal is enDEBUG;
 
 begin
   -- =========================== body ===============================

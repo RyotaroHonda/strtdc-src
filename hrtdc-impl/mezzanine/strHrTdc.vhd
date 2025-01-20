@@ -96,6 +96,7 @@ architecture RTL of StrHrTdc is
   signal request_vital_reset  : std_logic;
   constant kWidthVitalReset   : integer:= 8;
   signal sr_vital_reset       : std_logic_vector(kWidthVitalReset-1 downto 0);
+  signal neg_edge_gate, daq_off_reset : std_logic;
 
   signal laccp_fine_offset    : signed(kWidthLaccpFineOffset-1 downto 0);
 
@@ -121,7 +122,7 @@ architecture RTL of StrHrTdc is
   signal incoming_buf_pfull         : std_logic;
   signal local_hbf_num_mismatch     : std_logic;
 
-  attribute mark_debug of daq_is_running  : signal is enDEBUG;
+  --attribute mark_debug of daq_is_running  : signal is enDEBUG;
   attribute mark_debug of trigger_gate    : signal is enDEBUG;
   attribute mark_debug of local_hbf_num_mismatch    : signal is enDEBUG;
 
@@ -164,6 +165,8 @@ architecture RTL of StrHrTdc is
   signal state_lbus      : BusProcessType;
 
   -- Debug --
+  attribute mark_debug of heartbeatIn     : signal is enDEBUG;
+  attribute mark_debug of daq_is_running  : signal is enDEBUG;
 
 begin
   -- ======================================================================
@@ -258,6 +261,11 @@ begin
       end if;
     end if;
   end process;
+
+  u_daqgate_edge    : entity mylib.EdgeDetector port map(clk, (not daq_is_running), neg_edge_gate);
+  u_reset_gen_vital : entity mylib.ResetGen
+    generic map(128)
+    port map(neg_edge_gate, clk, daq_off_reset);
 
   -- Trigger emulation mode --
   u_gate : entity mylib.GateGen
@@ -392,7 +400,8 @@ begin
     )
     port map(
       clk                 => clk,
-      rst                 => rstUser or pre_vital_reset or (not daq_is_running),
+      rst                 => rstUser or pre_vital_reset or daq_off_reset,
+      daqGateIn           => daq_is_running,
       lhbfNumMismatch     => open,
 
       -- ODPBlock input --

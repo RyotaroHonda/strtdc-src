@@ -199,6 +199,15 @@ constant SlicePosition              : sliceOrgArray :=
 --  attribute mark_debug of valid_leadingbuffer      : signal is enDEBUG;
 --  attribute mark_debug of valid_trailingbuffer     : signal is enDEBUG;
 
+  function GetDebugFlag(index : integer) return boolean is
+  begin
+--    if(index = 1) then
+--      return true;
+--    else
+      return false;
+--    end if;
+  end function;
+
 begin
   -- =========================== body ===============================
 
@@ -479,7 +488,7 @@ begin
     u_delimiterInserter : entity mylib.DelimiterInserter
       generic map
         (
-          enDEBUG       => false
+          enDEBUG       => GetDebugFlag(i)
         )
       port map
       (
@@ -512,6 +521,9 @@ begin
   gen_LTparing : for i in 0 to kNumInput-1 generate
   begin
     u_ltparing : entity mylib.LTParingUnit
+      generic map(
+        enDEBUG   => GetDebugFlag(i)
+      )
       port map(
         syncReset => sync_reset,
         clk       => baseClk,

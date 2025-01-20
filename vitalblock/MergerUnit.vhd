@@ -185,13 +185,16 @@ architecture Behavioral of MergerUnit is
   signal  debug_remainder : std_logic_vector(kNumInput-1 downto 0);
 
   attribute mark_debug : boolean;
-  attribute mark_debug of mask_delimiter        : signal is enDEBUG;
+  --attribute mark_debug of mask_delimiter        : signal is enDEBUG;
   attribute mark_debug of flag_last1stdelimiter : signal is enDEBUG;
   attribute mark_debug of flag_wait2nddelimiter : signal is enDEBUG;
-  attribute mark_debug of prog_full_outputfifo  : signal is enDEBUG;
+  --attribute mark_debug of prog_full_outputfifo  : signal is enDEBUG;
   attribute mark_debug of hbfnum_mismatch       : signal is enDEBUG;
   attribute mark_debug of din_merger            : signal is enDEBUG;
   attribute mark_debug of reg_hbfnum            : signal is enDEBUG;
+  attribute mark_debug of rden_inputfifo        : signal is enDEBUG;
+  attribute mark_debug of validIn               : signal is enDEBUG;
+  attribute mark_debug of emptyIn               : signal is enDEBUG;
 
   -- Stop optimization --
   -- attribute keep  : string;
