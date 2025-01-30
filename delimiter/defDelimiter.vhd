@@ -70,6 +70,8 @@ package defDelimiter is
   function checkDelimiter(data_type : std_logic_vector) return boolean;
   function checkTdc(data_type : std_logic_vector) return boolean;
 
+  -- Definition of internal data position --
+
   end package defDelimiter;
 -- ----------------------------------------------------------------------------------
 -- Package body
@@ -84,7 +86,7 @@ package body defDelimiter is
 
   function checkDelimiter(data_type : std_logic_vector) return boolean is
   begin
-    if(data_type = kDatatypeHeartbeat) then
+    if(data_type = kDatatypeHeartbeat or data_type = kDatatypeHeartbeatT2) then
       return true;
     else
       return false;

@@ -5,6 +5,7 @@ use IEEE.numeric_std.all;
 library mylib;
 use mylib.defDataBusAbst.all;
 use mylib.defDelimiter.all;
+use mylib.defLaccp.all;
 
 entity DelimiterReplacer is
   generic(
@@ -14,6 +15,7 @@ entity DelimiterReplacer is
     syncReset           : in std_logic;   -- synchronous reset
     clk                 : in std_logic;
     userReg             : in std_logic_vector(kPosHbdUserReg'length-1 downto 0);
+    LaccpFineOffset     : in signed(kWidthLaccpFineOffset-1 downto 0);
 
     -- Data In --
     validIn             : in std_logic;
@@ -71,7 +73,12 @@ begin
         validOut          <= validIn;
         if(validIn = '1' and checkDelimiter(data_type) = true) then
           if(is_1st_delimiter = '1') then
-            dOut              <= dIn;
+            dOut(kPosHbdDataType'range)  <= dIn(kPosHbdDataType'range);
+            dOut(kPosHbdReserve1'range)  <= dIn(kPosHbdReserve1'range);
+            dOut(kPosHbdFlag'range)      <= dIn(kPosHbdFlag'range);
+            dOut(kPosHbdOffset'range)    <= std_logic_vector(LaccpFineOffset);
+            dOut(kPosHbdHBFrame'range)   <= dIn(kPosHbdHBFrame'range);
+--            dOut              <= dIn;
             reg_num_word      <= num_word;
             is_1st_delimiter  <= '0';
           else

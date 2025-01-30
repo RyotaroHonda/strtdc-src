@@ -16,6 +16,7 @@ entity DelimiterInserter is
     syncReset   : in std_logic;   -- Synchronous reset
     --userRegIn   : in std_logic_vector(kPosHbdUserReg'length-1 downto 0);
     channelNum  : in std_logic_vector(kPosChannel'length-1 downto 0);
+    enBypassParing  : in std_logic;
 
     -- TDC in --
     validIn         : in  std_logic;
@@ -201,9 +202,16 @@ begin
         if(valid_tdc_buf = '1') then
           data_out        <= dout_tdc_buf;
           -- count the leading tdc data
-          if(dout_tdc_buf(kPosHbdDataType'range) = kDatatypeTDCData or dout_tdc_buf(kPosHbdDataType'range) = kDatatypeTDCDataT) then
-            num_word      <= num_word + 1;
+          if(enBypassParing = '1') then
+            if(dout_tdc_buf(kPosHbdDataType'range) = kDatatypeTDCData or dout_tdc_buf(kPosHbdDataType'range) = kDatatypeTDCDataT) then
+              num_word      <= num_word + 1;
+            end if;
+          else
+            if(dout_tdc_buf(kPosHbdDataType'range) = kDatatypeTDCData) then
+              num_word      <= num_word + 1;
+            end if;
           end if;
+
         end if;
 
       end if;

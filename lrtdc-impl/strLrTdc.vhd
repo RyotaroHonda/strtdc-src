@@ -138,6 +138,27 @@ architecture RTL of StrLrTdc is
   signal vital_valid      : std_logic;
   signal vital_dout       : std_logic_vector(kWidthData-1 downto 0);
 
+  -- Replacer -----------------------------------------------------
+  signal valid_replacer   : std_logic;
+  signal dout_replacer    : std_logic_vector(kWidthData-1 downto 0);
+
+  -- OfsCorr ------------------------------------------------------
+  constant kBitHbLsb      : integer:= 13;
+  signal reduced_ofs      : signed(kPosTiming'length downto 0);
+  signal rden_from_ofscorr  : std_logic;
+
+  function RoundingOff(ofs_in : in signed) return signed is
+    variable pulse_1    : signed(ofs_in'length-1 downto 0):= (1 => '1', others => '0');
+    variable round_ofs  : signed(ofs_in'length-1 downto 0);
+  begin
+    if(ofs_in(ofs_in'low) = '1') then
+      round_ofs := ofs_in + pulse_1;
+      return round_ofs(round_ofs'high downto 1);
+    else
+      return ofs_in(ofs_in'high downto ofs_in'low+1);
+    end if;
+  end function;
+
   -- bus process --
   signal state_lbus      : BusProcessType;
 
@@ -293,7 +314,7 @@ begin
       -- LACCP -----------------------------------------
       hbCount           => hbCount,
       hbfNumber         => hbfNumber,
-      LaccpFineOffset   => LaccpFineOffset,
+--      LaccpFineOffset   => LaccpFineOffset,
 
       -- Delimiter data output --
       validDelimiter    => delimiter_data_valid,
@@ -319,7 +340,7 @@ begin
       tdcMask         => reg_tdc_mask(kNumInput-1 downto 0),
       enBypassDelay   => reg_enbypass(kIndexDelay),
       enBypassParing  => reg_enbypass(kIndexParing),
-      enBypassOfsCorr => reg_enbypass(kIndexOfsCorr),
+      --enBypassOfsCorr => reg_enbypass(kIndexOfsCorr),
 
       enTotFilter     => reg_tot_filter_control(kIndexTotFilter),
       enTotZeroThrough => reg_tot_filter_control(kIndexTotZeroThrough),
@@ -372,6 +393,9 @@ begin
       outThrottlingOn     => output_throttling_on,
       inThrottlingT2On    => input_throttling_type2_on,
 
+      -- Offset correction --
+      rdEnFromOfsCorr     => rden_from_ofscorr,
+
       -- Link buf status --
       pfullLinkBufIn      => pfullLinkBufIn,
       emptyLinkInBufIn    => emptyLinkInBufIn,
@@ -390,10 +414,35 @@ begin
       syncReset           => sync_reset or pre_vital_reset or (not daq_is_running),
       clk                 => clk,
       userReg             => reg_user_for_delimiter,
+      LaccpFineOffset     => LaccpFineOffset,
 
       -- Data In --
       validIn             => vital_valid,
       dIn                 => vital_dout,
+
+      -- Data Out --
+      validOut            => valid_replacer,
+      dOut                => dout_replacer
+    );
+
+  -- OfsCorrection V2 --
+  reduced_ofs(kWidthFineCount downto 0) <= LaccpFineOffset(kBitHbLsb-1 downto kBitHbLsb-kWidthFineCount-1);
+  reduced_ofs(reduced_ofs'high downto reduced_ofs'high-kWidthHBCount+1)  <= (others => LaccpFineOffset(LaccpFineOffset'high));
+  u_corv2 : entity mylib.OfsCorrectV2
+    generic map(
+      kWidthOfs           => kPosTiming'length,
+      enDEBUG             => false
+    )
+    port map(
+      syncReset           => sync_reset or pre_vital_reset or (not daq_is_running),
+      clk                 => clk,
+      enBypassOfsCorr     => reg_enbypass(kIndexOfsCorr),
+      extendedOfs         => RoundingOff(reduced_ofs),
+
+      -- Data In --
+      rdEnOut             => rden_from_ofscorr,
+      validIn             => valid_replacer,
+      dIn                 => dout_replacer,
 
       -- Data Out --
       validOut            => dataRdValid,

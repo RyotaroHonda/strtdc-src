@@ -32,6 +32,9 @@ entity VitalBlock is
     outThrottlingOn     : out std_logic;                              -- Output throttling status
     inThrottlingT2On    : out std_logic;                              -- Input throttling Type2 status
 
+    -- Offset correction --
+    rdEnFromOfsCorr     : in std_logic;
+
     -- Link buf status --
     pfullLinkBufIn      : in std_logic;
     emptyLinkInBufIn    : in std_logic;
@@ -195,7 +198,7 @@ begin
   gen_lrtdc : if kTdcType = "LRTDC" generate
   begin
 
-    read_enable_to_merger   <= '1' when(output_throttling_on = '1') else rdenIn;
+    read_enable_to_merger   <= '1' when(output_throttling_on = '1' and rdEnFromOfsCorr = '1') else rdenIn;
 
     u_merger_block: entity mylib.MergerBlock
       generic map(
