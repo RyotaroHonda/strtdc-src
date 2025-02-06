@@ -105,6 +105,7 @@ architecture RTL of StrLrTdc is
   signal trigger_gate           : std_logic;
 
   signal incoming_buf_pfull     : std_logic;
+  signal incoming_buf_full      : std_logic;
   signal local_hbf_num_mismatch : std_logic;
 
   attribute mark_debug of daq_is_running  : signal is enDEBUG;
@@ -119,7 +120,7 @@ architecture RTL of StrLrTdc is
   -- Delimiter ----------------------------------------------------
   signal delimiter_flags        : std_logic_vector(kWidthDelimiterFlag-1 downto 0);
   signal delimiter_data_valid   : std_logic;
-  signal delimiter_dout         : std_logic_vector(kWidthData-1 downto 0);
+  signal delimiter_dout         : std_logic_vector(kWidthIntData-1 downto 0);
   signal reg_user_for_delimiter : std_logic_vector(kPosHbdUserReg'length-1 downto 0);
 
   attribute mark_debug of delimiter_data_valid  : signal is enDEBUG;
@@ -135,14 +136,37 @@ architecture RTL of StrLrTdc is
   signal reg_tot_minth, reg_tot_maxth : std_logic_vector(kWidthTOT-1 downto 0);
 
   -- Vital --------------------------------------------------------
-  signal vital_valid      : std_logic;
-  signal vital_dout       : std_logic_vector(kWidthData-1 downto 0);
+  signal valid_vital      : std_logic;
+  signal dout_vital       : std_logic_vector(kWidthData-1 downto 0);
+
+  -- Replacer -----------------------------------------------------
+  signal valid_ofscorr    : std_logic;
+  signal dout_ofscorr     : std_logic_vector(kWidthData-1 downto 0);
+  signal offset_in_hbd    : signed(LaccpFineOffset'range);
+
+  -- OfsCorr ------------------------------------------------------
+  constant kBitHbLsb      : integer:= 13;
+  signal reduced_ofs      : signed(kPosTiming'length downto 0);
+  signal rden_from_ofscorr  : std_logic;
+
+  function RoundingOff(ofs_in : in signed) return signed is
+    variable pulse_1    : signed(ofs_in'length-1 downto 0):= (1 => '1', others => '0');
+    variable round_ofs  : signed(ofs_in'length-1 downto 0);
+  begin
+    if(ofs_in(ofs_in'low) = '1') then
+      round_ofs := ofs_in + pulse_1;
+      return round_ofs(round_ofs'high downto 1);
+    else
+      return ofs_in(ofs_in'high downto ofs_in'low+1);
+    end if;
+  end function;
 
   -- bus process --
   signal state_lbus      : BusProcessType;
 
   -- Debug --
   attribute mark_debug of heartbeatIn     : signal is enDEBUG;
+
 
 begin
   -- ======================================================================
@@ -268,7 +292,7 @@ begin
   -- Delimiter generation --
   delimiter_flags(kIndexRadiationURE)     <= radiationURE;
 
-  delimiter_flags(kIndexOverflow)         <= incoming_buf_pfull;
+  delimiter_flags(kIndexOverflow)         <= incoming_buf_full;
   delimiter_flags(kIndexGHbfNumMismatch)  <= ghbfNumMismatchIn;
   delimiter_flags(kIndexLHbfNumMismatch)  <= '0';
 
@@ -293,7 +317,8 @@ begin
       -- LACCP -----------------------------------------
       hbCount           => hbCount,
       hbfNumber         => hbfNumber,
-      LaccpFineOffset   => LaccpFineOffset,
+      signBit           => LaccpFineOffset(LaccpFineOffset'high),
+--      LaccpFineOffset   => LaccpFineOffset,
 
       -- Delimiter data output --
       validDelimiter    => delimiter_data_valid,
@@ -319,7 +344,7 @@ begin
       tdcMask         => reg_tdc_mask(kNumInput-1 downto 0),
       enBypassDelay   => reg_enbypass(kIndexDelay),
       enBypassParing  => reg_enbypass(kIndexParing),
-      enBypassOfsCorr => reg_enbypass(kIndexOfsCorr),
+      --enBypassOfsCorr => reg_enbypass(kIndexOfsCorr),
 
       enTotFilter     => reg_tot_filter_control(kIndexTotFilter),
       enTotZeroThrough => reg_tot_filter_control(kIndexTotZeroThrough),
@@ -367,10 +392,14 @@ begin
 
       -- Status output --
       bufferProgFull      => incoming_buf_pfull,
+      bufferFull          => incoming_buf_full,
 
       -- Throttling status --
       outThrottlingOn     => output_throttling_on,
       inThrottlingT2On    => input_throttling_type2_on,
+
+      -- Offset correction --
+      rdEnFromOfsCorr     => rden_from_ofscorr,
 
       -- Link buf status --
       pfullLinkBufIn      => pfullLinkBufIn,
@@ -378,27 +407,55 @@ begin
 
       -- Output --
       rdenIn              => dataRdEn,
-      dataOut             => vital_dout,
+      dataOut             => dout_vital,
       emptyOut            => open,
       almostEmptyOut      => open,
-      validOut            => vital_valid
+      validOut            => valid_vital
+    );
+
+  -- OfsCorrection V2 --
+  reduced_ofs(kWidthFineCount downto 0) <= LaccpFineOffset(kBitHbLsb-1 downto kBitHbLsb-kWidthFineCount-1) when(reg_enbypass(kIndexOfsCorr) = '0') else (others => '0');
+  reduced_ofs(reduced_ofs'high downto kWidthFineCount+1)  <= (others => LaccpFineOffset(LaccpFineOffset'high)) when(reg_enbypass(kIndexOfsCorr) = '0') else (others => '0');
+  u_corv2 : entity mylib.OfsCorrectV2
+    generic map(
+      kWidthOfs           => kPosTiming'length,
+      enDEBUG             => false
+    )
+    port map(
+      syncReset           => sync_reset or pre_vital_reset or (not daq_is_running),
+      clk                 => clk,
+      enBypassOfsCorr     => reg_enbypass(kIndexOfsCorr),
+      extendedOfs         => RoundingOff(signed(reduced_ofs)),
+
+      -- Data In --
+      rdEnOut             => rden_from_ofscorr,
+      validIn             => valid_vital,
+      dIn                 => dout_vital,
+
+      -- Data Out --
+      validOut            => valid_ofscorr,
+      dOut                => dout_ofscorr
     );
 
   -- Replace 2nd delimiter with new delimiter --
+  offset_in_hbd <= LaccpFineOffset when(reg_enbypass(kIndexOfsCorr) = '1') else (others => '0');
   u_replacer : entity mylib.DelimiterReplacer
     port map(
       syncReset           => sync_reset or pre_vital_reset or (not daq_is_running),
       clk                 => clk,
       userReg             => reg_user_for_delimiter,
+      LaccpFineOffset     => offset_in_hbd,
 
       -- Data In --
-      validIn             => vital_valid,
-      dIn                 => vital_dout,
+      validIn             => valid_ofscorr,
+      dIn                 => dout_ofscorr,
 
       -- Data Out --
       validOut            => dataRdValid,
       dOut                => dataOut
     );
+
+
 
 
   -- bus process -------------------------------------------------------------

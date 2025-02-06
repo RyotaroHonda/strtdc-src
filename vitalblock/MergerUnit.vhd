@@ -56,9 +56,9 @@ architecture Behavioral of MergerUnit is
   -- Flag in delimiter words --
   -- 1st
   signal delimiter_flag         : std_logic_vector(kPosHbdFlag'length-1 downto 0);
-  signal delimiter_offset       : unsigned(kPosHbdOffset'length-1 downto 0);
+--  signal delimiter_offset       : unsigned(kPosHbdOffset'length-1 downto 0);
   -- 2st
-  signal delimiter_userreg      : std_logic_vector(kPosHbdUserReg'length-1 downto 0);
+--  signal delimiter_userreg      : std_logic_vector(kPosHbdUserReg'length-1 downto 0);
   signal delimiter_gensize      : unsigned(kPosHbdGenSize'length-1 downto 0);
 
   -- Hb frame check --
@@ -318,8 +318,8 @@ begin
       if(syncReset = '1') then
         wren_outputfifo       <= '0';
         delimiter_flag        <= (others=>'0');
-        delimiter_offset      <= (others=>'0');
-        delimiter_userreg     <= (others=>'0');
+        --delimiter_offset      <= (others=>'0');
+        --delimiter_userreg     <= (others=>'0');
         delimiter_gensize     <= (others=>'0');
 
         hbfnum_is_registered  <= '0';
@@ -337,7 +337,8 @@ begin
               din_outputfifo(kPosHbdDataType'range) <= din_merger(kPosHbdDataType'range);
               din_outputfifo(kPosHbdReserve1'range) <= din_merger(kPosHbdReserve1'range);
               din_outputfifo(kPosHbdFlag'range)     <= din_merger(kPosHbdFlag'range) or delimiter_flag or genFlagVector(kIndexLHbfNumMismatch, check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch);
-              din_outputfifo(kPosHbdOffset'range)   <= std_logic_vector( cal_delimiter_offset(unsigned(din_merger(kPosHbdOffset'range)),delimiter_offset) );
+              --din_outputfifo(kPosHbdOffset'range)   <= std_logic_vector( cal_delimiter_offset(unsigned(din_merger(kPosHbdOffset'range)),delimiter_offset) );
+              din_outputfifo(kPosHbdOffset'range)   <= din_merger(kPosHbdOffset'range);
               din_outputfifo(kPosHbdHBFrame'range)  <= din_merger(kPosHbdHBFrame'range);
 
               hbfnum_mismatch                       <= check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch;
@@ -346,11 +347,12 @@ begin
             else
               din_outputfifo(kPosHbdDataType'range) <= din_merger(kPosHbdDataType'range);
               din_outputfifo(kPosHbdReserve1'range) <= din_merger(kPosHbdReserve1'range);
-              din_outputfifo(kPosHbdUserReg'range)  <= din_merger(kPosHbdUserReg'range) or delimiter_userreg;
+              din_outputfifo(kPosHbdUserReg'range)  <= din_merger(kPosHbdUserReg'range);
+              --din_outputfifo(kPosHbdUserReg'range)  <= din_merger(kPosHbdUserReg'range) or               delimiter_userreg;
               din_outputfifo(kPosHbdGenSize'range)  <= std_logic_vector( unsigned(din_merger(kPosHbdGenSize'range)) + delimiter_gensize );
               delimiter_flag        <= (others=>'0');
-              delimiter_offset      <= (others=>'0');
-              delimiter_userreg     <= (others=>'0');
+              --delimiter_offset      <= (others=>'0');
+              --delimiter_userreg     <= (others=>'0');
               delimiter_gensize     <= (others=>'0');
               hbfnum_is_registered  <= '0';
               hbfnum_mismatch       <= '0';
@@ -363,7 +365,7 @@ begin
             -- 1st delimiter --
             if(flag_wait2nddelimiter = kZero)then
               delimiter_flag    <= din_merger(kPosHbdFlag'range) or delimiter_flag;
-              delimiter_offset  <= cal_delimiter_offset(unsigned(din_merger(kPosHbdOffset'range)),delimiter_offset);
+              --delimiter_offset  <= cal_delimiter_offset(unsigned(din_merger(kPosHbdOffset'range)),delimiter_offset);
               if(hbfnum_is_registered = '1') then
                 hbfnum_mismatch       <= check_hbfnum_mismatch(din_merger(kPosHbdHBFrame'range), reg_hbfnum) or hbfnum_mismatch;
               else
@@ -373,7 +375,7 @@ begin
 
             -- 2nd delimiter --
             else
-              delimiter_userreg <= din_merger(kPosHbdUserReg'range) or delimiter_userreg;
+              --delimiter_userreg <= din_merger(kPosHbdUserReg'range) or delimiter_userreg;
               delimiter_gensize <= unsigned(din_merger(kPosHbdGenSize'range)) + delimiter_gensize;
             end if;
           end if;

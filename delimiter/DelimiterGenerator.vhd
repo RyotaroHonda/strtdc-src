@@ -24,12 +24,13 @@ entity DelimiterGenerator is
     -- LACCP -----------------------------------------
     hbCount           : in std_logic_vector(kWidthStrHbc-1 downto 0);
     hbfNumber         : in std_logic_vector(kWidthStrHbf-1 downto 0);
-    LaccpFineOffset   : in signed(kWidthLaccpFineOffset-1 downto 0);
+    signBit           : in std_logic;
+    --LaccpFineOffset   : in signed(kWidthLaccpFineOffset-1 downto 0);
 
     -- For ODP block ----------------------------------
     -- Delimiter data output --
     validDelimiter    : out std_logic;
-    dOutDelimiter     : out std_logic_vector(kWidthData-1 downto 0)
+    dOutDelimiter     : out std_logic_vector(kWidthIntData-1 downto 0)
   );
 end DelimiterGenerator;
 
@@ -66,15 +67,28 @@ begin
         hb_delimiter_wren       <= '0';
       else
         -- Generate two delimiter words, 1st at kMaxHBCount-1, 2nd at KmaxHBCount --
-        if(unsigned(hbCount) >= unsigned(kMaxHBCount)-1)then
-          hb_delimiter_wren                     <= '1';
-          hb_delimiter(kPosHbdDataType'range)   <= kDatatypeHeartbeat;
-          hb_delimiter(kPosHbdReserve1'range)   <= (others => '0');
-          hb_delimiter(kPosHbdFlag'range)       <= reg_flags;
-          hb_delimiter(kPosHbdOffset'range)     <= std_logic_vector(LaccpFineOffset);
-          hb_delimiter(kPosHbdHBFrame'range)    <= hbfNumber;
+        if(signBit = '0') then
+          -- positive --
+          if(unsigned(hbCount) >= unsigned(kMaxHBCount)-1)then
+            hb_delimiter_wren                     <= '1';
+            hb_delimiter(kPosIHbdDataType'range)  <= kDatatypeHeartbeat;
+            hb_delimiter(kPosIHbdFlag'range)      <= reg_flags;
+            hb_delimiter(kPosIHbdHBFrame'range)   <= hbfNumber;
+          else
+            hb_delimiter_wren                     <= '0';
+          end if;
         else
-          hb_delimiter_wren                     <= '0';
+          -- negative --
+          if(unsigned(hbCount) = unsigned(kMaxHBCount) or unsigned(hbCount) = 0)then
+            hb_delimiter_wren                     <= '1';
+            hb_delimiter(kPosIHbdDataType'range)  <= kDatatypeHeartbeat;
+            hb_delimiter(kPosIHbdFlag'range)      <= reg_flags;
+            hb_delimiter(kPosIHbdHBFrame'range)   <= hbfNumber;
+
+          else
+            hb_delimiter_wren                     <= '0';
+          end if;
+
         end if;
       end if;
     end if;
