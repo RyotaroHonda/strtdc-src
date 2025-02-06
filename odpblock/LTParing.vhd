@@ -18,11 +18,11 @@ entity LTParingUnit is
 
     -- Data In --
     validIn         : in std_logic;
-    dIn             : in std_logic_vector(kWidthData-1 downto 0);
+    dIn             : in std_logic_vector(kWidthIntData-1 downto 0);
 
     -- Data Out --
     validOut        : out std_logic;
-    dOut            : out std_logic_vector(kWidthData-1 downto 0)
+    dOut            : out std_logic_vector(kWidthIntData-1 downto 0)
   );
 end LTParingUnit;
 
@@ -63,7 +63,7 @@ begin
   -- Entity IO --
   validOut    <= valid_out when(enBypass = '0') else validIn;
   dOut        <= data_out  when(enBypass = '0') else dIn;
-  data_type   <= dIn(kPosHbdDataType'range);
+  data_type   <= dIn(kPosIHbdDataType'range);
   -- Entity IO --
 
   u_sm : process(clk)
@@ -152,10 +152,10 @@ begin
 
             elsif(validIn = '1' and data_type = kDatatypeTDCDataT) then
               -- Trailing is found. Calculate TOT.
-              data_out(kPosHbdDataType'range) <= buf_leading(kPosHbdDataType'range);
-              data_out(kPosChannel'range)     <= buf_leading(kPosChannel'range);
-              data_out(kPosTot'range)         <= std_logic_vector(unsigned(dIn(kPosTot'length+kPosTiming'low-1 downto kPosTiming'low)) - unsigned(buf_leading(kPosTot'length+kPosTiming'low-1 downto kPosTiming'low)));
-              data_out(kPosTiming'high downto 0) <= (kPosTiming'range => buf_leading(kPosTiming'range), others => '0');
+              data_out(kPosIHbdDataType'range) <= buf_leading(kPosIHbdDataType'range);
+              --data_out(kPosChannel'range)     <= buf_leading(kPosChannel'range);
+              data_out(kPosITot'range)         <= std_logic_vector(unsigned(dIn(kPosITot'length+kPosITiming'low-1 downto kPosITiming'low)) - unsigned(buf_leading(kPosITot'length+kPosITiming'low-1 downto kPosITiming'low)));
+              data_out(kPosITiming'high downto 0) <= (kPosITiming'range => buf_leading(kPosITiming'range), others => '0');
               valid_out                       <= '1';
 
               del_index                       := 0;

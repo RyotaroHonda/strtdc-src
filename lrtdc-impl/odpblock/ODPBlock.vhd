@@ -47,7 +47,7 @@ entity ODPBlock is
 
     -- delimiter --
     validDelimiter  : in  std_logic;
-    dInDelimiter    : in  std_logic_vector(kWidthData-1 downto 0);
+    dInDelimiter    : in  std_logic_vector(kWidthIntData-1 downto 0);
 
     -- Data In --
     sigIn           : in  std_logic_vector(kNumInput-1 downto 0);
@@ -62,6 +62,7 @@ end ODPBlock;
 architecture RTL of ODPBlock is
   -- System --
   signal sync_reset    : std_logic;
+  signal daq_off_reset : std_logic;
 
   -- Signal decralation ---------------------------------------------
   signal sig_in_n           : std_logic_vector(kNumInput-1 downto 0);
@@ -116,11 +117,11 @@ architecture RTL of ODPBlock is
   signal dtot_hb                : TOTArrayType(kNumInput-1 downto 0)(kWidthTOT-1 downto 0);
 
   signal valid_inserter         : std_logic_vector(kNumInput -1 downto 0);
-  signal dout_inserter          : DataArrayType(kNumInput-1 downto 0);
+  signal dout_inserter          : IntDataArrayType(kNumInput-1 downto 0);
 
   -- LT Pairing --
   signal valid_pairing          : std_logic_vector(kNumInput -1 downto 0);
-  signal dout_pairing           : DataArrayType(kNumInput-1 downto 0);
+  signal dout_pairing           : IntDataArrayType(kNumInput-1 downto 0);
 
   -- TOTFilter --
   signal valid_tot_filter       : std_logic_vector(kNumInput -1 downto 0);
@@ -131,15 +132,16 @@ architecture RTL of ODPBlock is
 
   function GetDebugFlag(index : integer) return boolean is
   begin
---    if(index = 1) then
---      return true;
---    else
+    if(index = 1) then
+      return true;
+    else
       return false;
---    end if;
+    end if;
   end function;
 
 begin
   -- =========================== body ===============================
+  daq_off_reset <= not daqOn;
 
   validOut  <= valid_tot_filter;
   dOut      <= dout_tot_filter;
@@ -308,7 +310,8 @@ begin
     u_delimiterInserter : entity mylib.DelimiterInserter
       generic map
         (
-          enDEBUG      => GetDebugFlag(i)
+          --enDEBUG      => GetDebugFlag(i)
+          enDEBUG      => false
         )
         port map
         (
@@ -316,8 +319,9 @@ begin
           clk             => baseClk,
           syncReset       => sync_reset,
           --userRegIn       => userReg,
-          ChannelNum      => std_logic_vector(to_unsigned(i, kWidthChannel)),
+          --ChannelNum      => std_logic_vector(to_unsigned(i, kWidthChannel)),
           enBypassParing  => enBypassParing,
+          signBit         => LaccpFineOffset(LaccpFineOffset'high),
 
           -- TDC in --
           validIn         => valid_data_trigger(i),
@@ -344,10 +348,11 @@ begin
   begin
     u_ltparing : entity mylib.LTParingUnit
       generic map(
-        enDEBUG   => GetDebugFlag(i)
+        --enDEBUG   => GetDebugFlag(i)
+        enDEBUG   => false
       )
       port map(
-        syncReset => sync_reset,
+        syncReset => sync_reset or daq_off_reset,
         clk       => baseClk,
         enBypass  => enBypassParing,
 
@@ -361,13 +366,18 @@ begin
       );
 
     u_TOTFilter : entity mylib.TOTFilter
+      generic map(
+        --enDEBUG   => GetDebugFlag(i)
+        enDEBUG   => false
+      )
       port map(
-        syncReset         => sync_reset,
+        syncReset         => sync_reset or daq_off_reset,
         clk               => baseClk,
         enFilter          => enTotFilter,
         minTh             => totMinTh,
         maxTh             => totMaxTh,
         enZeroThrough     => enTotZeroThrough,
+        ChannelNum        => std_logic_vector(to_unsigned(i, kWidthChannel)),
 
         -- Data In --
         validIn           => valid_pairing(i),

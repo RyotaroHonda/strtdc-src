@@ -22,6 +22,7 @@ entity IncomingBuffer is
 
     -- flag   (system)
     bufferProgFull    : out STD_LOGIC_VECTOR (kNumStrInput-1 downto 0); --incomming FIFO prog full
+    bufferFull        : out STD_LOGIC_VECTOR (kNumStrInput-1 downto 0); --incomming FIFO full
 
     -- output (merger unit)
     bufRdenIn         : in  STD_LOGIC_VECTOR (kNumStrInput-1 downto 0); --fifo read enable
@@ -85,6 +86,7 @@ begin
 
   --bufferProgFull  <= '0' when unsigned(prog_full_fifo) = 0 else '1';
   bufferProgFull  <= prog_full_fifo;
+  bufferFull      <= full_fifo;
 
   for_process :for i in kNumStrInput-1 downto 0 generate
   begin

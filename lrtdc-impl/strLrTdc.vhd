@@ -105,6 +105,7 @@ architecture RTL of StrLrTdc is
   signal trigger_gate           : std_logic;
 
   signal incoming_buf_pfull     : std_logic;
+  signal incoming_buf_full      : std_logic;
   signal local_hbf_num_mismatch : std_logic;
 
   attribute mark_debug of daq_is_running  : signal is enDEBUG;
@@ -119,7 +120,7 @@ architecture RTL of StrLrTdc is
   -- Delimiter ----------------------------------------------------
   signal delimiter_flags        : std_logic_vector(kWidthDelimiterFlag-1 downto 0);
   signal delimiter_data_valid   : std_logic;
-  signal delimiter_dout         : std_logic_vector(kWidthData-1 downto 0);
+  signal delimiter_dout         : std_logic_vector(kWidthIntData-1 downto 0);
   signal reg_user_for_delimiter : std_logic_vector(kPosHbdUserReg'length-1 downto 0);
 
   attribute mark_debug of delimiter_data_valid  : signal is enDEBUG;
@@ -135,12 +136,13 @@ architecture RTL of StrLrTdc is
   signal reg_tot_minth, reg_tot_maxth : std_logic_vector(kWidthTOT-1 downto 0);
 
   -- Vital --------------------------------------------------------
-  signal vital_valid      : std_logic;
-  signal vital_dout       : std_logic_vector(kWidthData-1 downto 0);
+  signal valid_vital      : std_logic;
+  signal dout_vital       : std_logic_vector(kWidthData-1 downto 0);
 
   -- Replacer -----------------------------------------------------
-  signal valid_replacer   : std_logic;
-  signal dout_replacer    : std_logic_vector(kWidthData-1 downto 0);
+  signal valid_ofscorr    : std_logic;
+  signal dout_ofscorr     : std_logic_vector(kWidthData-1 downto 0);
+  signal offset_in_hbd    : signed(LaccpFineOffset'range);
 
   -- OfsCorr ------------------------------------------------------
   constant kBitHbLsb      : integer:= 13;
@@ -164,6 +166,7 @@ architecture RTL of StrLrTdc is
 
   -- Debug --
   attribute mark_debug of heartbeatIn     : signal is enDEBUG;
+
 
 begin
   -- ======================================================================
@@ -289,7 +292,7 @@ begin
   -- Delimiter generation --
   delimiter_flags(kIndexRadiationURE)     <= radiationURE;
 
-  delimiter_flags(kIndexOverflow)         <= incoming_buf_pfull;
+  delimiter_flags(kIndexOverflow)         <= incoming_buf_full;
   delimiter_flags(kIndexGHbfNumMismatch)  <= ghbfNumMismatchIn;
   delimiter_flags(kIndexLHbfNumMismatch)  <= '0';
 
@@ -314,6 +317,7 @@ begin
       -- LACCP -----------------------------------------
       hbCount           => hbCount,
       hbfNumber         => hbfNumber,
+      signBit           => LaccpFineOffset(LaccpFineOffset'high),
 --      LaccpFineOffset   => LaccpFineOffset,
 
       -- Delimiter data output --
@@ -388,6 +392,7 @@ begin
 
       -- Status output --
       bufferProgFull      => incoming_buf_pfull,
+      bufferFull          => incoming_buf_full,
 
       -- Throttling status --
       outThrottlingOn     => output_throttling_on,
@@ -402,32 +407,15 @@ begin
 
       -- Output --
       rdenIn              => dataRdEn,
-      dataOut             => vital_dout,
+      dataOut             => dout_vital,
       emptyOut            => open,
       almostEmptyOut      => open,
-      validOut            => vital_valid
-    );
-
-  -- Replace 2nd delimiter with new delimiter --
-  u_replacer : entity mylib.DelimiterReplacer
-    port map(
-      syncReset           => sync_reset or pre_vital_reset or (not daq_is_running),
-      clk                 => clk,
-      userReg             => reg_user_for_delimiter,
-      LaccpFineOffset     => LaccpFineOffset,
-
-      -- Data In --
-      validIn             => vital_valid,
-      dIn                 => vital_dout,
-
-      -- Data Out --
-      validOut            => valid_replacer,
-      dOut                => dout_replacer
+      validOut            => valid_vital
     );
 
   -- OfsCorrection V2 --
-  reduced_ofs(kWidthFineCount downto 0) <= LaccpFineOffset(kBitHbLsb-1 downto kBitHbLsb-kWidthFineCount-1);
-  reduced_ofs(reduced_ofs'high downto reduced_ofs'high-kWidthHBCount+1)  <= (others => LaccpFineOffset(LaccpFineOffset'high));
+  reduced_ofs(kWidthFineCount downto 0) <= LaccpFineOffset(kBitHbLsb-1 downto kBitHbLsb-kWidthFineCount-1) when(reg_enbypass(kIndexOfsCorr) = '0') else (others => '0');
+  reduced_ofs(reduced_ofs'high downto kWidthFineCount+1)  <= (others => LaccpFineOffset(LaccpFineOffset'high)) when(reg_enbypass(kIndexOfsCorr) = '0') else (others => '0');
   u_corv2 : entity mylib.OfsCorrectV2
     generic map(
       kWidthOfs           => kPosTiming'length,
@@ -437,17 +425,37 @@ begin
       syncReset           => sync_reset or pre_vital_reset or (not daq_is_running),
       clk                 => clk,
       enBypassOfsCorr     => reg_enbypass(kIndexOfsCorr),
-      extendedOfs         => RoundingOff(reduced_ofs),
+      extendedOfs         => RoundingOff(signed(reduced_ofs)),
 
       -- Data In --
       rdEnOut             => rden_from_ofscorr,
-      validIn             => valid_replacer,
-      dIn                 => dout_replacer,
+      validIn             => valid_vital,
+      dIn                 => dout_vital,
+
+      -- Data Out --
+      validOut            => valid_ofscorr,
+      dOut                => dout_ofscorr
+    );
+
+  -- Replace 2nd delimiter with new delimiter --
+  offset_in_hbd <= LaccpFineOffset when(reg_enbypass(kIndexOfsCorr) = '1') else (others => '0');
+  u_replacer : entity mylib.DelimiterReplacer
+    port map(
+      syncReset           => sync_reset or pre_vital_reset or (not daq_is_running),
+      clk                 => clk,
+      userReg             => reg_user_for_delimiter,
+      LaccpFineOffset     => offset_in_hbd,
+
+      -- Data In --
+      validIn             => valid_ofscorr,
+      dIn                 => dout_ofscorr,
 
       -- Data Out --
       validOut            => dataRdValid,
       dOut                => dataOut
     );
+
+
 
 
   -- bus process -------------------------------------------------------------

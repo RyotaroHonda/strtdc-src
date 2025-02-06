@@ -27,6 +27,7 @@ entity VitalBlock is
 
     -- Status output --
     bufferProgFull      : out std_logic;                              -- Incomming buffer prog full flag
+    bufferFull          : out std_logic;                              -- Incomming buffer full flag
 
     -- Throttling status --
     outThrottlingOn     : out std_logic;                              -- Output throttling status
@@ -54,6 +55,7 @@ architecture Behavioral of VitalBlock is
   signal sync_reset             : std_logic;
 
   signal incoming_buf_pfull     : std_logic_vector(kNumInput-1 downto 0);
+  signal incoming_buf_full      : std_logic_vector(kNumInput-1 downto 0);
   signal input_throttling_type2_on : std_logic;
   signal output_throttling_on   : std_logic;
   signal local_hbf_num_mismatch : std_logic;
@@ -95,6 +97,7 @@ begin
   lhbfNumMismatch <= local_hbf_num_mismatch;
 
   bufferProgFull  <= '0' when(unsigned(incoming_buf_pfull) = 0) else '1';
+  bufferFull      <= '0' when(unsigned(incoming_buf_full) = 0) else '1';
   inThrottlingT2On  <= input_throttling_type2_on;
   outThrottlingOn   <= output_throttling_on;
 
@@ -153,6 +156,7 @@ begin
       odpDataIn       => dout_ithrottling,
 
       bufferProgFull  => incoming_buf_pfull,
+      bufferFull      => incoming_buf_full,
 
       bufRdenIn          => rden_incoming,
       bufDataOut         => dout_incoming,
@@ -198,7 +202,9 @@ begin
   gen_lrtdc : if kTdcType = "LRTDC" generate
   begin
 
-    read_enable_to_merger   <= '1' when(output_throttling_on = '1' and rdEnFromOfsCorr = '1') else rdenIn;
+    read_enable_to_merger   <= '1' when(output_throttling_on = '1') else
+                               '0' when(output_throttling_on = '0' and rdEnFromOfsCorr = '0') else
+                              rdenIn;
 
     u_merger_block: entity mylib.MergerBlock
       generic map(

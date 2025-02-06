@@ -43,18 +43,19 @@ architecture RTL of OfsCorrectV2 is
   signal ibuf_empty, ibuf_rden, ibuf_rdvalid  : std_logic;
   signal idout : std_logic_vector(dIn'range);
 
-  signal edge_cbuf_empty  : std_logic_vector(1 downto 0);
+  --signal edge_cbuf_empty  : std_logic_vector(1 downto 0);
   signal work_mode        : std_logic;
   constant kBuffering     : std_logic:= '0';
   constant kMoving        : std_logic:= '1';
 
-  type ModeType is (BufferingMode, WaitLatency, MovingMode);
+  type ModeType is (BufferingMode, CheckHbdT2, WaitHbdT2, WaitLatency, MovingMode);
   signal state_mode       : ModeType;
 
   signal cbuf_empty, cbuf_rden, cbuf_rdvalid, cbuf_wren : std_logic;
   signal cdin, cdout      : std_logic_vector(dIn'range);
 
   signal data_tsize_corr  : signed(kPosHbdTransSize'length-1 downto 0);
+  signal prev_tsize_corr  : signed(kPosHbdTransSize'length-1 downto 0);
 
   signal valid_through    : std_logic;
   signal dout_through     : std_logic_vector(dIn'range);
@@ -65,6 +66,23 @@ architecture RTL of OfsCorrectV2 is
     temp_vect := not std_logic_vector(value);
     return (signed(temp_vect) +1);
   end function;
+
+  -- debug --
+  attribute mark_debug of ibuf_empty    : signal is enDEBUG;
+  attribute mark_debug of ibuf_rden     : signal is enDEBUG;
+  attribute mark_debug of ibuf_rdvalid  : signal is enDEBUG;
+  attribute mark_debug of idout         : signal is enDEBUG;
+  --attribute mark_debug of edge_cbuf_empty : signal is enDEBUG;
+  attribute mark_debug of work_mode     : signal is enDEBUG;
+  attribute mark_debug of state_mode     : signal is enDEBUG;
+  attribute mark_debug of cbuf_empty    : signal is enDEBUG;
+  attribute mark_debug of cbuf_rden    : signal is enDEBUG;
+  attribute mark_debug of cbuf_rdvalid    : signal is enDEBUG;
+  attribute mark_debug of cbuf_wren    : signal is enDEBUG;
+  attribute mark_debug of valid_through    : signal is enDEBUG;
+  --attribute mark_debug of dout_through    : signal is enDEBUG;
+  attribute mark_debug of validIn       : signal is enDEBUG;
+  attribute mark_debug of extendedOfs      : signal is enDEBUG;
 
 
 begin
@@ -111,24 +129,42 @@ begin
       if(syncReset = '1') then
         count       := 0;
 
-        edge_cbuf_empty <= (others => '0');
+        --edge_cbuf_empty <= (others => '0');
         work_mode   <= kBuffering;
         rdEnOut     <= '1';
         ibuf_rden   <= '1';
         cbuf_rden   <= '0';
         state_mode  <= BufferingMode;
       else
-        edge_cbuf_empty <= edge_cbuf_empty(0) & cbuf_empty;
+        --edge_cbuf_empty <= edge_cbuf_empty(0) & cbuf_empty;
 
         case state_mode is
           when BufferingMode =>
             work_mode   <= kBuffering;
 
-            if(checkDelimiter(data_type) = true and ibuf_rdvalid = '1' and enBypassOfsCorr = '0') then
+            if(data_type = kDatatypeHeartbeat and ibuf_rdvalid = '1' and enBypassOfsCorr = '0') then
+              rdEnOut     <= '0';
+              ibuf_rden   <= '0';
+              state_mode  <= CheckHbdT2;
+            end if;
+
+          when CheckHbdT2 =>
+            if(data_type = kDatatypeHeartbeatT2 and ibuf_rdvalid = '1') then
+              count       := 2;
+              state_mode  <= WaitLatency;
+            else
+              rdEnOut     <= '1';
+              state_mode  <= WaitHbdT2;
+            end if;
+
+          when WaitHbdT2 =>
+            if(data_type = kDatatypeHeartbeatT2 and ibuf_rdvalid = '1') then
               count       := 2;
               rdEnOut     <= '0';
               ibuf_rden   <= '0';
               state_mode  <= WaitLatency;
+            else
+              ibuf_rden   <= '1';
             end if;
 
           when WaitLatency =>
@@ -140,7 +176,8 @@ begin
             count := count -1;
 
           when MovingMode =>
-            if(edge_cbuf_empty = "01") then
+            --if(edge_cbuf_empty = "01") then
+            if(cbuf_empty = '1') then
               work_mode   <= kBuffering;
               rdEnOut     <= '1';
               ibuf_rden   <= '1';
@@ -149,7 +186,7 @@ begin
             end if;
 
           when others =>
-            edge_cbuf_empty <= (others => '0');
+--            edge_cbuf_empty <= (others => '0');
             work_mode   <= kBuffering;
             rdEnOut     <= '1';
             ibuf_rden   <= '1';
@@ -162,7 +199,9 @@ begin
 
 
   u_corr : process(clk)
-    variable ctiming     : signed(kWidthOfs-1 downto 0):= (others => '0');
+    variable ctiming     : signed(kWidthOfs downto 0):= (others => '0');
+    variable tmp_ofs     : signed(kWidthOfs downto 0):= (others => '0');
+    variable tmp_timing  : std_logic_vector(kWidthOfs downto 0):= (others => '0');
     variable cdata_tsize : signed(kPosHbdTransSize'range):= (others => '0');
     variable cdata_gsize : signed(kPosHbdGenSize'range):= (others => '0');
   begin
@@ -171,19 +210,24 @@ begin
         cbuf_wren     <= '0';
         valid_through <= '0';
         data_tsize_corr <= (others => '0');
+        prev_tsize_corr <= (others => '0');
       else
         if(ibuf_rdvalid = '1' and enBypassOfsCorr = '0') then
           if(checkDelimiter(data_type) = false) then
             -- Normal data --
+            tmp_ofs     := extendedOfs(extendedOfs'high) & extendedOfs;
+            tmp_timing  := '0' & idout(kPosTiming'range);
+            ctiming     := signed(tmp_timing) + tmp_ofs;
+            --ctiming     := signed(idout(kPosTiming'range)) + extendedOfs;
+
             if(extendedOfs(extendedOfs'high) = '0') then
               -- Positive --
-              ctiming   := signed(idout(kPosTiming'range)) + extendedOfs;
-
-              if(ctiming(ctiming'high) /= idout(kPosTiming'high)) then
+              --if(ctiming(ctiming'high) /= idout(kPosTiming'high)) then
+              if((ctiming(ctiming'high) xor tmp_timing(tmp_timing'high)) = '1') then
                 -- across frame boundary --
                 cbuf_wren   <= '1';
                 cdin(idout'high downto kPosTiming'high+1)   <= idout(idout'high downto kPosTiming'high+1);
-                cdin(kPosTiming'high downto 0)  <= (kPosTiming'range => std_logic_vector(ctiming), others => '0');
+                cdin(kPosTiming'high downto 0)  <= (kPosTiming'range => std_logic_vector(ctiming(kWidthOfs-1 downto 0)), others => '0');
 
                 data_tsize_corr  <= data_tsize_corr-8;
                 --if(unsinged(idout(kPosTot'range)) = 0) then
@@ -197,15 +241,16 @@ begin
                 cbuf_wren       <= '0';
                 valid_through   <= '1';
                 dout_through(idout'high downto kPosTiming'high+1)   <= idout(idout'high downto kPosTiming'high+1);
-                dout_through(kPosTiming'high downto 0)  <= (kPosTiming'range => std_logic_vector(ctiming), others => '0');
+                dout_through(kPosTiming'high downto 0)  <= (kPosTiming'range => std_logic_vector(ctiming(kWidthOfs-1 downto 0)), others => '0');
               end if;
             else
               -- Negative --
-              if(ctiming(ctiming'high) /= idout(kPosTiming'high)) then
+              --if(ctiming(ctiming'high) /= idout(kPosTiming'high)) then
+              if((ctiming(ctiming'high) xor tmp_timing(tmp_timing'high)) = '0' and unsigned(tmp_timing(kWidthOfs downto kWidthOfs-kWidthStrHbc)) = 0) then
                 -- across frame boundary --
                 cbuf_wren   <= '1';
                 cdin(idout'high downto kPosTiming'high+1)   <= idout(idout'high downto kPosTiming'high+1);
-                cdin(kPosTiming'high downto 0)  <= (kPosTiming'range => std_logic_vector(ctiming), others => '0');
+                cdin(kPosTiming'high downto 0)  <= (kPosTiming'range => std_logic_vector(ctiming(kWidthOfs-1 downto 0)), others => '0');
 
                 data_tsize_corr  <= data_tsize_corr-8;
                 --if(unsinged(idout(kPosTot'range)) = 0) then
@@ -219,19 +264,22 @@ begin
                 cbuf_wren       <= '0';
                 valid_through   <= '1';
                 dout_through(idout'high downto kPosTiming'high+1)   <= idout(idout'high downto kPosTiming'high+1);
-                dout_through(kPosTiming'high downto 0)  <= (kPosTiming'range => std_logic_vector(ctiming), others => '0');
+                dout_through(kPosTiming'high downto 0)  <= (kPosTiming'range => std_logic_vector(ctiming(kWidthOfs-1 downto 0)), others => '0');
               end if;
             end if;
           else
             -- Delimiter words --
             if(data_type = kDatatypeHeartbeatT2) then
-              cdata_tsize := signed(idout(kPosHbdTransSize'range)) + data_tsize_corr;
-              cdata_gsize := signed(idout(kPosHbdGenSize'range))   + data_tsize_corr;
-              dout_through(kPosHbdTransSize'range)  <= std_logic_vector(cdata_tsize);
+              --cdata_tsize := signed(idout(kPosHbdTransSize'range)) + data_tsize_corr;
+              cdata_gsize := signed(idout(kPosHbdGenSize'range)) + data_tsize_corr + prev_tsize_corr;
+              --dout_through(kPosHbdTransSize'range)  <= std_logic_vector(cdata_tsize);
+              dout_through(kPosHbdTransSize'range)  <= idout(kPosHbdTransSize'range);
               dout_through(kPosHbdGenSize'range)    <= std_logic_vector(cdata_gsize);
               dout_through(idout'high downto kPosHbdGenSize'high+1)    <= idout(idout'high downto kPosHbdGenSize'high+1);
 
-              data_tsize_corr <= InvertSign(data_tsize_corr);
+              --data_tsize_corr <= InvertSign(data_tsize_corr);
+              data_tsize_corr <= (others => '0');
+              prev_tsize_corr <= InvertSign(data_tsize_corr);
             else
               dout_through  <= idout;
             end if;
@@ -240,6 +288,7 @@ begin
             valid_through <= '1';
           end if;
         else
+          cbuf_wren     <= '0';
           valid_through <= ibuf_rdvalid;
           dout_through  <= idout;
         end if;
