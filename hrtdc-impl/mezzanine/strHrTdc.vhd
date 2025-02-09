@@ -120,6 +120,7 @@ architecture RTL of StrHrTdc is
   signal trigger_gate           : std_logic;
 
   signal incoming_buf_pfull         : std_logic;
+  signal incoming_buf_full          : std_logic;
   signal local_hbf_num_mismatch     : std_logic;
 
   --attribute mark_debug of daq_is_running  : signal is enDEBUG;
@@ -135,7 +136,7 @@ architecture RTL of StrHrTdc is
   -- Delimiter ----------------------------------------------------
   signal delimiter_flags        : std_logic_vector(kWidthDelimiterFlag-1 downto 0);
   signal delimiter_data_valid   : std_logic;
-  signal delimiter_dout         : std_logic_vector(kWidthData-1 downto 0);
+  signal delimiter_dout         : std_logic_vector(kWidthIntData-1 downto 0);
   --signal reg_user_for_delimiter : std_logic_vector(kPosHbdUserReg'length-1 downto 0);
 
   attribute mark_debug of delimiter_data_valid  : signal is enDEBUG;
@@ -158,8 +159,8 @@ architecture RTL of StrHrTdc is
 
 
   -- Vital --------------------------------------------------------
-  signal vital_valid      : std_logic;
-  signal vital_dout       : std_logic_vector(kWidthData-1 downto 0);
+  --signal valid_vital      : std_logic;
+  --signal dout_vital       : std_logic_vector(kWidthData-1 downto 0);
 
   -- bus process --
   signal state_lbus      : BusProcessType;
@@ -297,7 +298,7 @@ begin
   -- Delimiter generation --
   delimiter_flags(kIndexRadiationURE)     <= radiationURE;
 
-  delimiter_flags(kIndexOverflow)         <= incoming_buf_pfull;
+  delimiter_flags(kIndexOverflow)         <= incoming_buf_full;
   delimiter_flags(kIndexGHbfNumMismatch)  <= ghbfNumMismatchIn;
   delimiter_flags(kIndexLHbfNumMismatch)  <= '0';
 
@@ -309,7 +310,7 @@ begin
   delimiter_flags(kIndexFrameFlag2)       <= frameFlagsIn(0);
 
   -- Delimiter generation --block --
-  laccp_fine_offset <= LaccpFineOffset when(reg_enbypass(kIndexOfsCorr) = '1') else (others => '0');
+  --laccp_fine_offset <= LaccpFineOffset when(reg_enbypass(kIndexOfsCorr) = '1') else (others => '0');
   u_DelimiterGen: entity mylib.DelimiterGenerator
     generic map(
       enDEBUG     => false
@@ -324,7 +325,8 @@ begin
       -- LACCP -----------------------------------------
       hbCount           => hbCount,
       hbfNumber         => hbfNumber,
-      LaccpFineOffset   => laccp_fine_offset,
+      --LaccpFineOffset   => laccp_fine_offset,
+      signBit           => LaccpFineOffset(LaccpFineOffset'high),
 
       -- Delimiter data output --
       validDelimiter    => delimiter_data_valid,
@@ -409,12 +411,16 @@ begin
       odpDataIn           => odp_dout,
       hbCount             => hbCount,
 
-      -- Stcp flag --
+      -- Hbd flag --
       bufferProgFull      => incoming_buf_pfull,
+      bufferFull          => incoming_buf_full,
 
       -- Throttling status --
       outThrottlingOn     => output_throttling_on,
       inThrottlingT2On    => input_throttling_type2_on,
+
+      -- Offset correction --
+      rdEnFromOfsCorr     => '1',
 
       -- Link buf status --
       pfullLinkBufIn      => pfullLinkBufIn,

@@ -12,6 +12,10 @@ package defTDC is
   constant kPosTot      : std_logic_vector(kPosChannel'low-1     downto kPosChannel'low     -22) := (others => '0');
   constant kPosTiming   : std_logic_vector(kPosTot'low-1         downto kPosTot'low         -29) := (others => '0');
 
+  -- Internal ata structure --
+  constant kPosITot     : std_logic_vector(kPosIHbdDataType'low-1 downto kPosIHbdDataType'low -22) := (others => '0');
+  constant kPosITiming  : std_logic_vector(kPosITot'low-1         downto kPosITot'low         -29) := (others => '0');
+
   -- kWidthFine + kWidthSemiFine --
   constant kWidthFineCount  : integer := 13;
 
