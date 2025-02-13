@@ -70,15 +70,6 @@ package defDelimiter is
   function checkDelimiter(data_type : std_logic_vector) return boolean;
   function checkTdc(data_type : std_logic_vector) return boolean;
 
-  -- Definition of internal data position --
-  -- 1st delimiter --
-  constant kPosIHbdDataType : std_logic_vector(kWidthIntData-1        downto kWidthIntData        -kWidthDataType)      := (others => '0');
-  constant kPosIHbdFlag     : std_logic_vector(kPosIHbdDataType'low-1 downto kPosIHbdDataType'low -kWidthDelimiterFlag) := (others => '0');
-  constant kPosIHbdHBFrame  : std_logic_vector(kPosIHbdFlag'low-1     downto kPosIHbdFlag'low     -kWidthStrHbf)        := (others => '0');
-
-  -- 2nd delimiter --
-  constant kPosIHbdGenSize  : std_logic_vector(kPosHbdGenSize'length-4 downto 0):= (others => '0'); -- Num of  word (-3 comes from word to byte)
-
   end package defDelimiter;
 -- ----------------------------------------------------------------------------------
 -- Package body

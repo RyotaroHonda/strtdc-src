@@ -50,7 +50,7 @@ architecture RTL of DelimiterInserter is
   -- data merge
   constant kBuffLength        : integer:= 3;
   signal buff_delimiter_valid : std_logic_vector(kBuffLength-1 downto 0)  := (others=>'0');
-  signal buff_delimiter_data  : IntDataArrayType(kBuffLength-1 downto 0);
+  signal buff_delimiter_data  : IntDataArrayType(kBuffLength-1 downto 0)(kWidthIntData-1 downto 0);
 
   signal delayed_daq_on       : std_logic;
   signal sr_daq_on            : std_logic_vector(kBuffLength-1 downto -1);

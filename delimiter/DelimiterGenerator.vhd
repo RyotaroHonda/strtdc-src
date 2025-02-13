@@ -6,6 +6,7 @@ library mylib;
 use mylib.defDataBusAbst.all;
 use mylib.defDelimiter.all;
 use mylib.defLaccp.all;
+use mylib.defTDC.all;
 --use mylib.defODPBlock.all;
 
 

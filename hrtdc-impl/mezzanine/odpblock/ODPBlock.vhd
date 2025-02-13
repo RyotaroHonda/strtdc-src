@@ -175,11 +175,11 @@ architecture RTL of ODPBlock is
   signal dtot_hb                : TotArrayType(kNumInput-1 downto 0)(kWidthTOT-1 downto 0);
 
   signal valid_inserter         : std_logic_vector(kNumInput -1 downto 0);
-  signal dout_inserter          : IntDataArrayType(kNumInput-1 downto 0);
+  signal dout_inserter          : IntDataArrayType(kNumInput-1 downto 0)(kWidthIntData-1 downto 0);
 
   -- LT Pairing --
   signal valid_pairing          : std_logic_vector(kNumInput -1 downto 0);
-  signal dout_pairing           : IntDataArrayType(kNumInput-1 downto 0);
+  signal dout_pairing           : IntDataArrayType(kNumInput-1 downto 0)(kWidthIntData-1 downto 0);
 
   -- TOTFilter --
   signal valid_tot_filter       : std_logic_vector(kNumInput -1 downto 0);

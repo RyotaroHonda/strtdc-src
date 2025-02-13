@@ -14,7 +14,6 @@ package defDataBusAbst is
   type TOTArrayType       is array (natural range <>) of std_logic_vector;
 
   -- Definition of the internal data word ----------------------------------------------------
-  constant kWidthIntData    : integer:= 46; -- width of internal data
-  type IntDataArrayType is array(natural range <>) of std_logic_vector(kWidthIntData-1 downto 0);
+  type IntDataArrayType is array(natural range <>) of std_logic_vector;
 
 end package;
