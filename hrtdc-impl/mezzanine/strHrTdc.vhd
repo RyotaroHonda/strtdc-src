@@ -44,6 +44,7 @@ entity StrHrTdc is
 
     -- DAQ status ------------------------------------------------
     lHbfNumMismatch   : in std_logic;
+    recoveryRstOut    : out std_logic;
 --    outThrottlingOn   : in std_logic;
 
     -- LACCP -----------------------------------------------------
