@@ -169,6 +169,10 @@ architecture RTL of StrHrTdc is
   -- Debug --
   attribute mark_debug of heartbeatIn     : signal is enDEBUG;
   attribute mark_debug of daq_is_running  : signal is enDEBUG;
+  attribute mark_debug of lHbfNumMismatch : signal is enDEBUG;
+  attribute mark_debug of self_recovery   : signal is enDEBUG;
+  attribute mark_debug of request_vital_reset : signal is enDEBUG;
+  attribute mark_debug of pre_vital_reset : signal is enDEBUG;
 
 begin
   -- ======================================================================
@@ -180,7 +184,8 @@ begin
   u_sync_tcpon   : entity mylib.synchronizer port map(clk, linkActive,       sync_link_active);
 
 
-  daqOn <= daq_is_running;
+  daqOn             <= daq_is_running;
+  recoveryRstOut    <= pre_vital_reset;
   scrThrEn          <= scr_thr_on;
   throttling_on(0)  <= input_throttling_type2_on or output_throttling_on or hbf_throttling_on;
   throttling_on(1)  <= '0';
