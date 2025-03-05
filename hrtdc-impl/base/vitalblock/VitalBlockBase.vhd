@@ -123,6 +123,7 @@ begin
       syncReset           => sync_reset or (not linkActive),
       clk                 => clk,
       userReg             => userRegIn,
+      LaccpFineOffset     => (others => '0'),
 
       -- Data In --
       validIn             => valid_mgr,
