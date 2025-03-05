@@ -31,6 +31,8 @@ architecture RTL of LTParingUnit is
 -- Signal decralation ---------------------------------------------
 
   signal data_type        : std_logic_vector(kWidthDataType-1 downto 0);
+  signal tot_value        : std_logic_vector(kPosITot'length-1 downto 0);
+  signal immediate_flush  : std_logic;
 
   constant kMaxWaitCount  : integer:= kMaxPairingCount;
   signal buf_leading      : std_logic_vector(dIn'range);
@@ -54,8 +56,14 @@ architecture RTL of LTParingUnit is
 
   -- debug --
   attribute mark_debug      : boolean;
-  attribute mark_debug of valid_out : signal is enDEBUG;
-  attribute mark_debug of data_out  : signal is enDEBUG;
+  attribute mark_debug of validIn             : signal is enDEBUG;
+  attribute mark_debug of dIn                 : signal is enDEBUG;
+  attribute mark_debug of immediate_flush     : signal is enDEBUG;
+  attribute mark_debug of transition_reserve  : signal is enDEBUG;
+  attribute mark_debug of delimiter_exist     : signal is enDEBUG;
+  attribute mark_debug of state_paring        : signal is enDEBUG;
+  attribute mark_debug of valid_out           : signal is enDEBUG;
+  attribute mark_debug of data_out            : signal is enDEBUG;
 
 begin
   -- =========================== body ===============================
@@ -64,6 +72,7 @@ begin
   validOut    <= valid_out when(enBypass = '0') else validIn;
   dOut        <= data_out  when(enBypass = '0') else dIn;
   data_type   <= dIn(kPosIHbdDataType'range);
+  tot_value   <= dIn(kPosITot'range);
   -- Entity IO --
 
   u_sm : process(clk)
@@ -77,6 +86,7 @@ begin
         valid_out           <= '0';
         transition_reserve  <= '0';
         delimiter_exist     <= '0';
+        immediate_flush     <= '0';
         state_paring        <= WaitLeading;
       else
         case state_paring is
@@ -85,13 +95,24 @@ begin
             -- Process for leading data --
             if(delimiter_exist = '0') then
               if(validIn = '1' and data_type = kDatatypeTDCData) then
+                if(unsigned(tot_value) /= 0) then
+                  wait_count      := kMaxWaitCount;
+                else
+                  wait_count      := 0;
+                end if;
                 buf_leading     <= dIn;
-                wait_count      := 0;
+                --wait_count      := 0;
                 del_index       := 0;
                 state_paring    <= WaitTrailing;
               elsif(transition_reserve = '1') then
                 transition_reserve  <= '0';
-                wait_count          := 0;
+                if(immediate_flush = '1') then
+                  wait_count      := kMaxWaitCount;
+                  immediate_flush <= '0';
+                else
+                  wait_count      := 0;
+                end if;
+--                wait_count          := 0;
                 del_index           := 0;
                 state_paring        <= WaitTrailing;
               end if;
@@ -109,6 +130,9 @@ begin
               end if;
 
               if(validIn = '1' and data_type = kDatatypeTDCData) then
+                if(unsigned(tot_value) /= 0) then
+                  immediate_flush <= '1';
+                end if;
                 buf_leading         <= dIn;
                 transition_reserve  <= '1';
               end if;
@@ -124,12 +148,18 @@ begin
             -- Process for L/T data --
             if(wait_count = kMaxWaitCount) then
               -- Time out. No pair. --
-              data_out      <= buf_leading;
-              valid_out     <= '1';
+              data_out        <= buf_leading;
+              valid_out       <= '1';
+--              immediate_flush <= '0';
 
               if(validIn = '1' and data_type = kDatatypeTDCData) then
                 buf_leading       <= dIn;
-                wait_count        := 0;
+                if(unsigned(tot_value) /= 0) then
+                  wait_count      := kMaxWaitCount;
+                else
+                  wait_count      := 0;
+                end if;
+                --wait_count        := 0;
                 if(delimiter_exist = '1') then
                   del_index       := 0;
                   state_paring    <= FlushDelimiter;
@@ -194,6 +224,7 @@ begin
             end if;
 
           when Push2ndDelimiter =>
+            valid_out <= '0';
             if(validIn = '1' and checkDelimiter(data_type) = true) then
               buf_delimiter(del_index)  <= dIn;
               del_index                 := 0;

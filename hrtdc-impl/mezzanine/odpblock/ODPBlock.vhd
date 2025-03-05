@@ -202,11 +202,11 @@ constant SlicePosition              : sliceOrgArray :=
 
   function GetDebugFlag(index : integer) return boolean is
   begin
---    if(index = 1) then
---      return true;
---    else
+    if(index = 1) then
+      return true;
+    else
       return false;
---    end if;
+    end if;
   end function;
 
 begin
@@ -490,7 +490,8 @@ begin
     u_delimiterInserter : entity mylib.DelimiterInserter
       generic map
         (
-          enDEBUG       => GetDebugFlag(i)
+          enDEBUG         => false
+          --enDEBUG       => GetDebugFlag(i)
         )
       port map
       (
@@ -526,7 +527,8 @@ begin
   begin
     u_ltparing : entity mylib.LTParingUnit
       generic map(
-        enDEBUG   => GetDebugFlag(i)
+        --enDEBUG   => GetDebugFlag(i)
+        enDEBUG   => false
       )
       port map(
         syncReset => sync_reset or daq_off_reset,
