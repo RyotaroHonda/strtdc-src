@@ -264,6 +264,7 @@ begin
   -- Trigger emulation mode --
   u_gate : entity mylib.GateGen
     port map(
+      syncReset       => sync_reset,
       clk             => clk,
 
       emuModeOn       => reg_emumode_on,

@@ -8,6 +8,7 @@ use mylib.defGateGen.all;
 
 entity GateGen is
   port(
+    syncReset       : in STD_LOGIC;
     clk             : in STD_LOGIC;
 
     emuModeOn       : in std_logic_vector(1 downto 0);
@@ -47,9 +48,13 @@ begin
   u_addr : process(clk)
   begin
     if(clk'event and clk = '1') then
-      if(delay_reg_prev /= delayReg) then
-        write_addr  <= std_logic_vector(kMaxAddr);
-        read_addr   <= std_logic_vector(kMaxAddr-1-unsigned(delayReg));
+      if(syncReset = '1') then
+        write_addr      <= std_logic_vector(kMaxAddr);
+        read_addr       <= std_logic_vector(kMaxAddr-1);
+        delay_reg_prev  <= (others => '0');
+      elsif(delay_reg_prev /= delayReg) then
+        write_addr      <= std_logic_vector(kMaxAddr);
+        read_addr       <= std_logic_vector(kMaxAddr-1-unsigned(delayReg));
         delay_reg_prev  <= delayReg;
       else
         write_addr  <= std_logic_vector(unsigned(write_addr) +1);
