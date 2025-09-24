@@ -79,7 +79,10 @@ begin
           if(validIn(0) = '1' and checkDelimiter(dataIn(0)(kPosHbdDataType'range)) = true) then
             wren_fifo(1)  <= '1';
             if(is_2nd_delimiter = '1') then
-              din_fifo(1)(kPosHbdGenSize'range) <= (others => '0');
+              din_fifo(1)(kPosHbdDataType'range)  <= dataIn(0)(kPosHbdDataType'range);
+              din_fifo(1)(kPosHbdReserve1'range)  <= dataIn(0)(kPosHbdReserve1'range);
+              din_fifo(1)(kPosHbdGenSize'range)   <= (others => '0');
+              din_fifo(1)(kPosHbdTransSize'range) <= (others => '0');
               is_2nd_delimiter                  <= '0';
             else
               din_fifo(1)       <= dataIn(0);
